@@ -11,6 +11,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
+import plotly.express as px
 
 
 # ------------------------------------------------------------------
@@ -21,14 +22,16 @@ if 'API_URI' in os.environ:
 else:
     BASE_URI = st.secrets['cloud_api_uri']
 BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
-url = BASE_URI + 'optimise'
+
+OPTIMISE_URL = BASE_URI + 'optimise'
+EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
 
 
 # ------------------------------------------------------------------
 # page config
 # ------------------------------------------------------------------
 st.set_page_config(page_title="NoShowShield", page_icon="🛡️", layout="wide")
-st.title("NoShowShield")
+st.title("🛡️ NoShowShield")
 st.markdown("**AI-Powered Hotel Revenue Protection Against Cancellations**")
 st.markdown(
     "This dashboard predicts which bookings are likely to cancel and "
@@ -40,7 +43,7 @@ st.markdown(
 # ------------------------------------------------------------------
 # Request user input (sidebar)
 # ------------------------------------------------------------------
-st.sidebar.header("Optimization Settings")
+st.sidebar.header("⚙️ Optimization Settings")
 
 relocation_cost = st.sidebar.number_input(
     "Relocation cost (€)",
@@ -62,52 +65,41 @@ max_risk = st.sidebar.slider(
 
 
 # ------------------------------------------------------------------
-# API call function (does NOT block startup)
+# API helpers
 # ------------------------------------------------------------------
-def fetch_results(relocation_cost: float, max_risk: float):
+def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
     """
-    Call the live FastAPI GET /optimise endpoint on Cloud Run.
-    Retries up to 3 times with a generous timeout to handle
-    Cloud Run cold starts (container boot + model loading).
+    GET request with retries for Cloud Run cold starts.
+    Returns the JSON response or a dict with an 'error' key.
     """
-    params = {
-        "relocation_cost": relocation_cost,
-        "max_risk": max_risk,
-    }
-
-    MAX_RETRIES = 3
-    TIMEOUT = 120  # seconds — Cloud Run cold starts can take 30-90s
-
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(1, max_retries + 1):
         try:
-            response = requests.get(url, params=params, timeout=TIMEOUT)
-
+            response = requests.get(url, params=params, timeout=timeout)
             if response.status_code != 200:
                 return {"error": f"API returned status {response.status_code}: {response.text}"}
-
             return response.json()
-
         except requests.exceptions.Timeout:
-            if attempt < MAX_RETRIES:
+            if attempt < max_retries:
                 time.sleep(2)
                 continue
-            return {"error": "API request timed out after 3 attempts. The API may still be waking up — try again in a minute."}
-
+            return {"error": "API request timed out. The API may still be waking up — try again in a minute."}
         except requests.exceptions.ConnectionError:
-            if attempt < MAX_RETRIES:
+            if attempt < max_retries:
                 time.sleep(2)
                 continue
-            return {"error": "Could not connect to the API after 3 attempts. Check that the Cloud Run service is running."}
-
+            return {"error": "Could not connect to the API. Check that the Cloud Run service is running."}
     return {"error": "Unexpected error during API call."}
 
 
 # ------------------------------------------------------------------
-# Load data — triggered by button, stored in session_state
+# Load optimisation data — triggered by button
 # ------------------------------------------------------------------
-if st.sidebar.button(" Get Recommendations", type="primary", use_container_width=True):
+if st.sidebar.button("🚀 Get Recommendations", type="primary", use_container_width=True):
     with st.spinner("Fetching predictions from API … (first load may take up to 2 min while the API wakes up)"):
-        results = fetch_results(relocation_cost, max_risk)
+        results = api_get(OPTIMISE_URL, {
+            "relocation_cost": relocation_cost,
+            "max_risk": max_risk,
+        })
     if "error" in results:
         st.error(results["error"])
     else:
@@ -120,7 +112,7 @@ if st.sidebar.button(" Get Recommendations", type="primary", use_container_width
 # Display results (only if loaded)
 # ------------------------------------------------------------------
 if "results" not in st.session_state:
-    st.info("Adjust settings in the sidebar and click **Get Recommendations** to start.")
+    st.info("👈 Adjust settings in the sidebar and click **Get Recommendations** to start.")
     st.stop()
 
 results = st.session_state["results"]
@@ -150,7 +142,7 @@ selected_room = st.sidebar.selectbox("Select room type", available_rooms)
 # ------------------------------------------------------------------
 # Sidebar — model & evaluation metrics
 # ------------------------------------------------------------------
-st.sidebar.header("Model Info")
+st.sidebar.header("📊 Model Info")
 st.sidebar.caption(model_info.get("model_type", "XGBoost"))
 
 metrics_df = pd.DataFrame(
@@ -184,64 +176,149 @@ if filtered.empty:
 else:
     row = filtered.iloc[0]
 
+    # --- Top metrics row ---
     col1, col2, col3 = st.columns(3)
-    col1.metric("Capacity", int(row["capacity"]))
-    col2.metric("Current Bookings", int(row["total_bookings"]))
-    col3.metric("Expected Show-ups", round(row["expected_show_ups"], 1))
+    col1.metric("🏨 Capacity", int(row["capacity"]))
+    col2.metric("📋 Current Bookings", int(row["total_bookings"]))
+    col3.metric("👥 Expected Show-ups", round(row["expected_show_ups"], 1))
 
     st.divider()
 
     col4, col5, col6 = st.columns(3)
     col4.metric(
-        "Recommended Extra Bookings",
+        "✅ Recommended Extra Bookings",
         int(row["recommended_extra"]),
     )
     col5.metric(
-        "Net Benefit (€)",
+        "💰 Net Benefit (€)",
         f"€{row['net_benefit']:.2f}",
     )
     col6.metric(
-        "Relocation Risk",
+        "⚠️ Relocation Risk",
         f"{row['relocation_probability'] * 100:.2f}%",
     )
 
     st.divider()
 
     # ------------------------------------------------------------------
-    # Detailed table
+    # SHAP Explainability + Detailed table — two-column layout
     # ------------------------------------------------------------------
-    st.subheader("Detailed View")
+    left_col, right_col = st.columns([3, 2])
 
-    display_cols = [
-        "arrival_date",
-        "assigned_room_type",
-        "capacity",
-        "total_bookings",
-        "expected_show_ups",
-        "expected_cancellations",
-        "recommended_extra",
-        "net_benefit",
-        "relocation_probability",
-    ]
+    # --- Left: Detailed table ---
+    with left_col:
+        st.subheader("📋 Detailed View")
 
-    nice_df = filtered[display_cols].rename(columns={
-        "arrival_date": "Date",
-        "assigned_room_type": "Room",
-        "capacity": "Capacity",
-        "total_bookings": "Bookings",
-        "expected_show_ups": "Expected Show-ups",
-        "expected_cancellations": "Expected Cancels",
-        "recommended_extra": "Recommended Extra",
-        "net_benefit": "Net €",
-        "relocation_probability": "Relocation Risk",
-    })
+        display_cols = [
+            "arrival_date",
+            "assigned_room_type",
+            "capacity",
+            "total_bookings",
+            "expected_show_ups",
+            "expected_cancellations",
+            "recommended_extra",
+            "net_benefit",
+            "relocation_probability",
+        ]
 
-    st.dataframe(
-        nice_df.style.format({
-            "Expected Show-ups": "{:.1f}",
-            "Expected Cancels": "{:.1f}",
-            "Net €": "€{:.2f}",
-            "Relocation Risk": "{:.2%}",
-        }),
-        use_container_width=True,
-    )
+        nice_df = filtered[display_cols].rename(columns={
+            "arrival_date": "Date",
+            "assigned_room_type": "Room",
+            "capacity": "Capacity",
+            "total_bookings": "Bookings",
+            "expected_show_ups": "Expected Show-ups",
+            "expected_cancellations": "Expected Cancels",
+            "recommended_extra": "Recommended Extra",
+            "net_benefit": "Net €",
+            "relocation_probability": "Relocation Risk",
+        })
+
+        st.dataframe(
+            nice_df.style.format({
+                "Expected Show-ups": "{:.1f}",
+                "Expected Cancels": "{:.1f}",
+                "Net €": "€{:.2f}",
+                "Relocation Risk": "{:.2%}",
+            }),
+            use_container_width=True,
+        )
+
+    # --- Right: SHAP chart ---
+    with right_col:
+        st.subheader("🔍 SHAP — Top Risk Factors")
+        st.caption(
+            f"Why **{selected_room}** bookings on **{selected_date}** "
+            f"are likely to cancel"
+        )
+
+        # Cache key includes both date and room type
+        selected_date_str = str(selected_date)
+        cache_key = f"shap_{selected_date_str}_{selected_room}"
+
+        if cache_key not in st.session_state:
+            with st.spinner("Loading SHAP explanations …"):
+                shap_result = api_get(
+                    EXPLAIN_GLOBAL_URL,
+                    {
+                        "selected_date": selected_date_str,
+                        "room_type": selected_room,
+                    },
+                    timeout=60,
+                    max_retries=2,
+                )
+            st.session_state[cache_key] = shap_result
+        else:
+            shap_result = st.session_state[cache_key]
+
+        if "error" in shap_result:
+            st.warning(f"Could not load SHAP data: {shap_result['error']}")
+
+        elif shap_result.get("message"):
+            st.info(shap_result["message"])
+
+        elif shap_result.get("grouped_global_shap"):
+            shap_df = pd.DataFrame(shap_result["grouped_global_shap"])
+
+            # Clean up feature names for display
+            shap_df["feature"] = (
+                shap_df["feature_group"]
+                .str.replace("cat_ordinal__", "", regex=False)
+                .str.replace("_", " ", regex=False)
+                .str.title()
+            )
+
+            # Top 10 features, sorted ascending for horizontal bar
+            top_shap = (
+                shap_df
+                .nlargest(10, "mean_abs_shap")
+                .sort_values("mean_abs_shap")
+            )
+
+            fig = px.bar(
+                top_shap,
+                x="mean_abs_shap",
+                y="feature",
+                orientation="h",
+                labels={
+                    "mean_abs_shap": "Mean |SHAP Value|",
+                    "feature": "",
+                },
+                color="mean_abs_shap",
+                color_continuous_scale=["#2ecc71", "#f39c12", "#e74c3c"],
+            )
+            fig.update_layout(
+                height=400,
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=False,
+                coloraxis_showscale=False,
+                yaxis=dict(tickfont=dict(size=12)),
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.caption(
+                f"Based on **{shap_result.get('n_bookings', '?')}** "
+                f"**{selected_room}** bookings arriving on {selected_date_str}"
+            )
+        else:
+            st.info("No SHAP data available for this date and room type.")
