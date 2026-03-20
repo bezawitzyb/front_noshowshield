@@ -318,9 +318,9 @@ else:
 
             st.plotly_chart(fig, use_container_width=True)
 
-            st.caption(
-                f"Based on **{shap_result.get('n_bookings', '?')}** "
-                f"**{selected_room}** bookings arriving on {selected_date_str}"
-            )
+            # st.caption(
+            #     f"Based on **{shap_result.get('n_bookings', '?')}** "
+            #     f"**{selected_room}** bookings arriving on {selected_date_str}"
+            # )
         else:
             st.info("No SHAP data available for this date and room type.")
