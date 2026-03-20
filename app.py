@@ -34,16 +34,18 @@ st.set_page_config(page_title="NoShowShield", page_icon="🛡️", layout="wide"
 st.title("🛡️ NoShowShield")
 st.markdown("**AI-Powered Hotel Revenue Protection Against Cancellations**")
 st.markdown(
-    "This dashboard predicts which bookings are likely to cancel and "
-    "generates smart overbooking recommendations that protect hotel "
-    "revenue without putting guests at risk."
+    "NoShowShield uses machine learning to predict booking cancellations "
+    "and recommend optimal overbooking levels: maximising hotel revenue "
+    "while keeping guest relocation risk below a configurable threshold. "
+    "Select a date and room type to see actionable recommendations backed "
+    "by SHAP explainability."
 )
 
 
 # ------------------------------------------------------------------
 # Request user input (sidebar)
 # ------------------------------------------------------------------
-st.sidebar.header("⚙️ Optimization Settings")
+st.sidebar.header("Optimization Settings")
 
 relocation_cost = st.sidebar.number_input(
     "Relocation cost (€)",
@@ -94,7 +96,7 @@ def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
 # ------------------------------------------------------------------
 # Load optimisation data — triggered by button
 # ------------------------------------------------------------------
-if st.sidebar.button("🚀 Get Recommendations", type="primary", use_container_width=True):
+if st.sidebar.button("Get Recommendations", type="primary", use_container_width=True):
     with st.spinner("Fetching predictions from API … (first load may take up to 2 min while the API wakes up)"):
         results = api_get(OPTIMISE_URL, {
             "relocation_cost": relocation_cost,
@@ -112,7 +114,7 @@ if st.sidebar.button("🚀 Get Recommendations", type="primary", use_container_w
 # Display results (only if loaded)
 # ------------------------------------------------------------------
 if "results" not in st.session_state:
-    st.info("👈 Adjust settings in the sidebar and click **Get Recommendations** to start.")
+    st.info("Adjust settings in the sidebar and click **Get Recommendations** to start.")
     st.stop()
 
 results = st.session_state["results"]
@@ -130,7 +132,7 @@ model_info = results["model_info"]
 # ------------------------------------------------------------------
 # Sidebar — filters
 # ------------------------------------------------------------------
-st.sidebar.header("🔍 Filters")
+st.sidebar.header("Filters")
 
 available_dates = sorted(recs["arrival_date"].dt.date.unique())
 selected_date = st.sidebar.selectbox("Select date", available_dates)
@@ -142,7 +144,7 @@ selected_room = st.sidebar.selectbox("Select room type", available_rooms)
 # ------------------------------------------------------------------
 # Sidebar — model & evaluation metrics
 # ------------------------------------------------------------------
-st.sidebar.header("📊 Model Info")
+st.sidebar.header("Model Info")
 st.sidebar.caption(model_info.get("model_type", "XGBoost"))
 
 metrics_df = pd.DataFrame(
@@ -178,23 +180,23 @@ else:
 
     # --- Top metrics row ---
     col1, col2, col3 = st.columns(3)
-    col1.metric("🏨 Capacity", int(row["capacity"]))
-    col2.metric("📋 Current Bookings", int(row["total_bookings"]))
-    col3.metric("👥 Expected Show-ups", round(row["expected_show_ups"], 1))
+    col1.metric("Capacity", int(row["capacity"]))
+    col2.metric("Current Bookings", int(row["total_bookings"]))
+    col3.metric("Expected Show-ups", round(row["expected_show_ups"], 1))
 
     st.divider()
 
     col4, col5, col6 = st.columns(3)
     col4.metric(
-        "✅ Recommended Extra Bookings",
+        "Recommended Extra Bookings",
         int(row["recommended_extra"]),
     )
     col5.metric(
-        "💰 Net Benefit (€)",
+        "Net Benefit (€)",
         f"€{row['net_benefit']:.2f}",
     )
     col6.metric(
-        "⚠️ Relocation Risk",
+        "Relocation Risk",
         f"{row['relocation_probability'] * 100:.2f}%",
     )
 
@@ -207,7 +209,7 @@ else:
 
     # --- Left: Detailed table ---
     with left_col:
-        st.subheader("📋 Detailed View")
+        st.subheader("Detailed View")
 
         display_cols = [
             "arrival_date",
@@ -245,9 +247,9 @@ else:
 
     # --- Right: SHAP chart ---
     with right_col:
-        st.subheader("🔍 SHAP — Top Risk Factors")
+        st.subheader("SHAP — Top Risk Factors")
         st.caption(
-            f"Why **{selected_room}** bookings on **{selected_date}** "
+            f"Why bookings on **{selected_date}** for room type **{selected_room}**"
             f"are likely to cancel"
         )
 
