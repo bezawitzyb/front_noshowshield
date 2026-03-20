@@ -249,7 +249,7 @@ else:
     with right_col:
         st.subheader("SHAP — Top Risk Factors")
         st.caption(
-            f"Why bookings on **{selected_date}** for room type **{selected_room}**"
+            f"Why bookings on **{selected_date}** for room type **{selected_room}** "
             f"are likely to cancel"
         )
 
