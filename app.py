@@ -96,72 +96,101 @@ def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
 
 
 # ------------------------------------------------------------------
-# PMF computation helper (client-side) - ROBUST VERSION
+# PMF computation helper (client-side) - FIXED VERSION
 # ------------------------------------------------------------------
+def compute_pmf_exact(probs):
+    """
+    Compute exact Poisson-Binomial PMF using dynamic programming.
+    probs: array of probabilities (0-1)
+    Returns: x (array of cancellation counts), pmf (probabilities)
+    """
+    probs = np.asarray(probs, dtype=np.float64)
+    n = len(probs)
+
+    if n == 0:
+        return np.array([0]), np.array([1.0])
+
+    # DP array: pmf[k] = probability of k cancellations
+    pmf = np.zeros(n + 1)
+    pmf[0] = 1.0
+
+    for p in probs:
+        # Probability this booking cancels
+        new_pmf = np.zeros(n + 1)
+        for k in range(n + 1):
+            if k == 0:
+                new_pmf[k] = pmf[k] * (1 - p)
+            else:
+                new_pmf[k] = pmf[k-1] * p + pmf[k] * (1 - p)
+        pmf = new_pmf
+
+    x = np.arange(n + 1)
+
+    # Normalize to ensure sum is exactly 1
+    pmf = pmf / (pmf.sum() + 1e-10)
+
+    return x, pmf
+
+
+def compute_pmf_normal(probs):
+    """
+    Normal approximation for large n.
+    """
+    probs = np.asarray(probs, dtype=np.float64)
+    n = len(probs)
+    mean = np.sum(probs)
+    variance = np.sum(probs * (1 - probs))
+
+    if variance < 1e-6:
+        # Nearly deterministic
+        x = np.array([int(round(mean))])
+        pmf = np.array([1.0])
+        return x, pmf
+
+    std = np.sqrt(variance)
+
+    # Create range covering mean ± 4 std devs, but at least 10 points
+    x_min = max(0, int(mean - 4*std))
+    x_max = min(n, int(mean + 4*std))
+
+    # Ensure reasonable range
+    if x_max - x_min < 10:
+        x_min = max(0, x_min - 5)
+        x_max = min(n, x_max + 5)
+
+    x = np.arange(x_min, x_max + 1)
+
+    # Normal PDF
+    pmf = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
+    pmf = pmf / (pmf.sum() + 1e-10)
+
+    return x, pmf
+
+
 def compute_pmf_fast(cancel_probs):
     """
     Compute PMF using exact method for small n, Normal approximation for large n.
-    Handles edge cases and invalid inputs gracefully.
     """
     try:
         # Ensure numpy array and clean data
         probs = np.asarray(cancel_probs, dtype=np.float64)
-        probs = np.clip(probs, 0.0, 1.0)  # Ensure valid probabilities
+
+        # Handle NaN/inf
+        probs = np.nan_to_num(probs, nan=0.5, posinf=1.0, neginf=0.0)
+        probs = np.clip(probs, 0.0, 1.0)
 
         n = len(probs)
 
         if n == 0:
             return np.array([0]), np.array([1.0])
-
-        if n == 1:
-            # Trivial case: one booking
-            return np.array([0, 1]), np.array([1 - probs[0], probs[0]])
-
-        mean = np.sum(probs)
-        variance = np.sum(probs * (1 - probs))
-
-        # For large hotels, Normal approximation
-        if n > 80:
-            if variance < 0.001:  # Nearly deterministic
-                x = np.array([int(round(mean))])
-                pmf = np.array([1.0])
-                return x, pmf
-
-            std = np.sqrt(variance)
-            # Create range covering mean ± 4 std devs
-            x_min = max(0, int(mean - 4*std))
-            x_max = min(n, int(mean + 4*std))
-            if x_max <= x_min:
-                x_max = x_min + 1
-            x = np.arange(x_min, x_max + 1)
-
-            # Normal PDF
-            pmf = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-            pmf = pmf / pmf.sum()  # Normalize
-            return x, pmf
-
-        # For small-medium hotels, use exact dynamic programming (more stable than FFT for n<80)
-        pmf = np.zeros(n + 1)
-        pmf[0] = 1.0
-
-        for p in probs:
-            # Convolve with Bernoulli(p)
-            new_pmf = np.zeros(n + 1)
-            new_pmf[0] = pmf[0] * (1 - p)
-            new_pmf[1:] = pmf[:-1] * p + pmf[1:] * (1 - p)
-            pmf = new_pmf
-
-        x = np.arange(n + 1)
-
-        # Clean up tiny numerical errors
-        pmf = np.maximum(pmf, 0)
-        pmf = pmf / pmf.sum()
-
-        return x, pmf
+        elif n <= 80:
+            return compute_pmf_exact(probs)
+        else:
+            return compute_pmf_normal(probs)
 
     except Exception as e:
-        st.error(f"Error in PMF computation: {str(e)}")
-        # Return uniform distribution as fallback
+        st.error(f"PMF computation error: {e}")
+        # Fallback to uniform
         n = len(cancel_probs) if cancel_probs is not None else 1
         return np.arange(n + 1), np.ones(n + 1) / (n + 1)
 
@@ -442,7 +471,7 @@ with tab1:
 
             # Validate that we have individual_probs
             if "individual_probs" not in row or row["individual_probs"] is None:
-                st.error("No individual probabilities found in the data. Check that your API returns 'individual_probs'.")
+                st.error("No individual probabilities found in the data.")
             else:
                 try:
                     # Convert to numpy array and ensure valid values
@@ -451,7 +480,7 @@ with tab1:
                     if len(cancel_probs_raw) == 0:
                         st.warning("No cancellation probabilities available.")
                     else:
-                        # Clamp probabilities to valid range [0, 1]
+                        # Clean data
                         cancel_probs_raw = np.clip(cancel_probs_raw, 0.0, 1.0)
 
                         mean_cancel = float(np.mean(cancel_probs_raw))
@@ -477,67 +506,70 @@ with tab1:
 
                             n_current_max = len(cancel_probs_raw)
 
-                            # Ensure we have valid slider range
-                            if n_current_max < 1:
-                                st.warning("No current bookings to display.")
-                            else:
-                                n_current = st.slider(
-                                    "Bookings processed",
-                                    min_value=1,
-                                    max_value=int(n_current_max),
-                                    value=int(n_current_max),
-                                    key="current_slider"
+                            n_current = st.slider(
+                                "Bookings processed",
+                                min_value=1,
+                                max_value=int(n_current_max),
+                                value=int(n_current_max),
+                                key="current_slider"
+                            )
+
+                            # Subset probabilities based on slider
+                            current_probs = cancel_probs_raw[:n_current]
+
+                            # Metrics
+                            outcomes = int(n_current + 1)
+                            expected = float(np.sum(current_probs))
+                            std_dev = float(np.sqrt(np.sum(current_probs * (1 - current_probs))))
+
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("Possible outcomes", outcomes)
+                            m2.metric("Expected cancellations", f"{expected:.1f}")
+                            m3.metric("Std deviation", f"{std_dev:.2f}")
+
+                            # Compute and display distribution
+                            x_cur, pmf_cur = compute_pmf_fast(current_probs)
+
+                            if len(x_cur) > 0 and len(pmf_cur) > 0 and np.sum(pmf_cur) > 0:
+                                fig_cur = go.Figure()
+                                fig_cur.add_trace(go.Bar(
+                                    x=x_cur,
+                                    y=pmf_cur,
+                                    marker_color="#6366f1",
+                                    hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
+                                ))
+
+                                # Force x-axis to be reasonable
+                                fig_cur.update_layout(
+                                    height=300,
+                                    margin=dict(l=0, r=0, t=20, b=0),
+                                    xaxis=dict(
+                                        title="Number of Cancellations",
+                                        range=[-0.5, n_current + 0.5],
+                                        dtick=max(1, n_current // 5)
+                                    ),
+                                    yaxis=dict(title="Probability", range=[0, max(pmf_cur) * 1.1]),
+                                    showlegend=False,
+                                    template="plotly_white",
+                                    bargap=0.2
                                 )
 
-                                # Subset probabilities based on slider
-                                current_probs = cancel_probs_raw[:n_current]
+                                st.plotly_chart(fig_cur, use_container_width=True)
+                            else:
+                                st.error("Failed to compute distribution")
+                                st.write(f"Debug: x_cur={x_cur}, pmf_cur sum={np.sum(pmf_cur)}")
 
-                                # Metrics
-                                outcomes = int(n_current + 1)
-                                expected = float(np.sum(current_probs))
-                                std_dev = float(np.sqrt(np.sum(current_probs * (1 - current_probs))))
-
-                                m1, m2, m3 = st.columns(3)
-                                m1.metric("Possible outcomes", outcomes)
-                                m2.metric("Expected cancellations", f"{expected:.1f}")
-                                m3.metric("Std deviation", f"{std_dev:.2f}")
-
-                                # Distribution chart
-                                x_cur, pmf_cur = compute_pmf_fast(current_probs)
-
-                                if len(x_cur) > 0 and len(pmf_cur) > 0:
-                                    fig_cur = go.Figure()
-                                    fig_cur.add_trace(go.Bar(
-                                        x=x_cur,
-                                        y=pmf_cur,
-                                        marker_color="#6366f1",
-                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.3f}<extra></extra>"
-                                    ))
-
-                                    fig_cur.update_layout(
-                                        height=300,
-                                        margin=dict(l=0, r=0, t=20, b=0),
-                                        xaxis_title="Number of Cancellations",
-                                        yaxis_title="Probability",
-                                        showlegend=False,
-                                        template="plotly_white",
-                                        bargap=0.2
-                                    )
-
-                                    st.plotly_chart(fig_cur, use_container_width=True)
-                                else:
-                                    st.warning("Could not compute distribution.")
-
-                                # Individual probability pills
-                                st.caption("Individual booking cancel probabilities:")
-                                if len(current_probs) > 0:
-                                    pills_html = "".join([
-                                        f'<span style="background-color: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid #c7d2fe;">{int(float(p)*100)}</span>'
-                                        for p in current_probs[:20]  # Limit to first 20 to avoid overflow
-                                    ])
-                                    if len(current_probs) > 20:
-                                        pills_html += f'<span style="padding: 4px;">...+{len(current_probs)-20} more</span>'
-                                    st.markdown(pills_html, unsafe_allow_html=True)
+                            # Individual probability pills
+                            st.caption("Individual booking cancel probabilities:")
+                            if len(current_probs) > 0:
+                                prob_vals = [int(float(p)*100) for p in current_probs[:15]]
+                                pills_html = "".join([
+                                    f'<span style="background-color: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid #c7d2fe;">{p}</span>'
+                                    for p in prob_vals
+                                ])
+                                if len(current_probs) > 15:
+                                    pills_html += f'<span style="padding: 4px;">...+{len(current_probs)-15} more</span>'
+                                st.markdown(pills_html, unsafe_allow_html=True)
 
                         # --- RIGHT CHART: Recommended Bookings ---
                         with dist_col2:
@@ -545,108 +577,104 @@ with tab1:
 
                             n_rec_max = len(extended_probs)
 
-                            if n_rec_max < 1:
-                                st.warning("No recommended bookings to display.")
-                            else:
-                                n_rec = st.slider(
-                                    "Bookings processed",
-                                    min_value=1,
-                                    max_value=int(n_rec_max),
-                                    value=int(n_rec_max),
-                                    key="rec_slider"
-                                )
+                            n_rec = st.slider(
+                                "Bookings processed",
+                                min_value=1,
+                                max_value=int(n_rec_max),
+                                value=int(n_rec_max),
+                                key="rec_slider"
+                            )
 
-                                # Subset probabilities based on slider
-                                rec_probs = extended_probs[:n_rec]
+                            # Subset probabilities based on slider
+                            rec_probs = extended_probs[:n_rec]
 
-                                # Metrics
-                                outcomes_rec = int(n_rec + 1)
-                                expected_rec = float(np.sum(rec_probs))
-                                std_dev_rec = float(np.sqrt(np.sum(rec_probs * (1 - rec_probs))))
+                            # Metrics
+                            outcomes_rec = int(n_rec + 1)
+                            expected_rec = float(np.sum(rec_probs))
+                            std_dev_rec = float(np.sqrt(np.sum(rec_probs * (1 - rec_probs))))
 
-                                m1, m2, m3 = st.columns(3)
-                                m1.metric("Possible outcomes", outcomes_rec)
-                                m2.metric("Expected cancellations", f"{expected_rec:.1f}")
-                                m3.metric("Std deviation", f"{std_dev_rec:.2f}")
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("Possible outcomes", outcomes_rec)
+                            m2.metric("Expected cancellations", f"{expected_rec:.1f}")
+                            m3.metric("Std deviation", f"{std_dev_rec:.2f}")
 
-                                # Distribution chart
-                                x_rec, pmf_rec = compute_pmf_fast(rec_probs)
+                            # Compute distribution
+                            x_rec, pmf_rec = compute_pmf_fast(rec_probs)
 
-                                if len(x_rec) > 0 and len(pmf_rec) > 0:
-                                    fig_rec = go.Figure()
+                            if len(x_rec) > 0 and len(pmf_rec) > 0 and np.sum(pmf_rec) > 0:
+                                fig_rec = go.Figure()
 
-                                    # Color code based on whether we're showing extras
-                                    if n_rec <= len(cancel_probs_raw):
-                                        color = "#6366f1"  # Blue - only current
-                                    else:
-                                        color = "#f97316"  # Orange - includes extras
+                                # Color based on type
+                                is_all_current = n_rec <= len(cancel_probs_raw)
+                                color = "#6366f1" if is_all_current else "#f97316"
 
-                                    fig_rec.add_trace(go.Bar(
-                                        x=x_rec,
-                                        y=pmf_rec,
-                                        marker_color=color,
-                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.3f}<extra></extra>"
-                                    ))
+                                fig_rec.add_trace(go.Bar(
+                                    x=x_rec,
+                                    y=pmf_rec,
+                                    marker_color=color,
+                                    hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
+                                ))
 
-                                    # Add vertical line for safety threshold if showing full recommended
-                                    if n_rec == n_rec_max and min_needed > 0:
-                                        fig_rec.add_vline(
-                                            x=min_needed - 0.5,
-                                            line_dash="dash",
-                                            line_color="red",
-                                            annotation_text=f"Need ≥{min_needed}",
-                                            annotation_position="top right"
-                                        )
-
-                                    fig_rec.update_layout(
-                                        height=300,
-                                        margin=dict(l=0, r=0, t=20, b=0),
-                                        xaxis_title="Number of Cancellations",
-                                        yaxis_title="Probability",
-                                        showlegend=False,
-                                        template="plotly_white",
-                                        bargap=0.2
+                                # Add threshold line
+                                if min_needed > 0:
+                                    fig_rec.add_vline(
+                                        x=min_needed - 0.5,
+                                        line_dash="dash",
+                                        line_color="red",
+                                        line_width=2,
+                                        annotation_text=f"Need ≥{min_needed}",
+                                        annotation_position="top right"
                                     )
 
-                                    st.plotly_chart(fig_rec, use_container_width=True)
-                                else:
-                                    st.warning("Could not compute distribution.")
+                                # Set reasonable x-axis range
+                                x_max_display = max(n_rec, min_needed + 5) if min_needed > 0 else n_rec
 
-                                # Individual probability pills with color coding
-                                st.caption("Individual cancel probabilities (Blue=Current, Orange=Extra):")
-                                if len(rec_probs) > 0:
-                                    pills_rec = []
-                                    for i, p in enumerate(rec_probs[:20]):  # Limit to first 20
-                                        p_val = float(p)
-                                        if i < len(cancel_probs_raw):
-                                            # Current booking - Blue
-                                            bg = "#e0e7ff"
-                                            color = "#4338ca"
-                                            border = "#c7d2fe"
-                                        else:
-                                            # Extra booking - Orange
-                                            bg = "#ffedd5"
-                                            color = "#9a3412"
-                                            border = "#fed7aa"
+                                fig_rec.update_layout(
+                                    height=300,
+                                    margin=dict(l=0, r=0, t=20, b=0),
+                                    xaxis=dict(
+                                        title="Number of Cancellations",
+                                        range=[-0.5, x_max_display + 0.5]
+                                    ),
+                                    yaxis=dict(title="Probability", range=[0, max(pmf_rec) * 1.1]),
+                                    showlegend=False,
+                                    template="plotly_white",
+                                    bargap=0.2
+                                )
 
-                                        pills_rec.append(
-                                            f'<span style="background-color: {bg}; color: {color}; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid {border};">{int(p_val*100)}</span>'
-                                        )
+                                st.plotly_chart(fig_rec, use_container_width=True)
 
-                                    if len(rec_probs) > 20:
-                                        pills_rec.append(f'<span style="padding: 4px;">...+{len(rec_probs)-20} more</span>')
-
-                                    st.markdown("".join(pills_rec), unsafe_allow_html=True)
-
-                                # Safety buffer info when at max
-                                if n_rec == n_rec_max and min_needed > 0:
-                                    # Calculate safety probability
-                                    prob_safe = float(np.sum(pmf_rec[x_rec >= min_needed])) if len(pmf_rec) > 0 else 0.0
+                                # Safety buffer calculation
+                                if min_needed > 0 and len(x_rec) > 0:
+                                    prob_safe = float(np.sum(pmf_rec[x_rec >= min_needed]))
                                     st.markdown(f"**Safety buffer:** {prob_safe*100:.1f}% chance of ≥{min_needed} cancellations")
+                            else:
+                                st.error("Failed to compute distribution")
+
+                            # Probability pills
+                            st.caption("Individual cancel probabilities (Blue=Current, Orange=Extra):")
+                            if len(rec_probs) > 0:
+                                pills_rec = []
+                                for i, p in enumerate(rec_probs[:15]):
+                                    p_int = int(float(p)*100)
+                                    if i < len(cancel_probs_raw):
+                                        style = 'background-color: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;'
+                                    else:
+                                        style = 'background-color: #ffedd5; color: #9a3412; border: 1px solid #fed7aa;'
+
+                                    pills_rec.append(
+                                        f'<span style="{style} padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600;">{p_int}</span>'
+                                    )
+
+                                if len(rec_probs) > 15:
+                                    pills_rec.append(f'<span style="padding: 4px;">...+{len(rec_probs)-15} more</span>')
+
+                                st.markdown("".join(pills_rec), unsafe_allow_html=True)
 
                 except Exception as e:
-                    st.error(f"Error rendering distribution charts: {str(e)}")
-                    st.exception(e)  # Show full traceback in development
+                    st.error(f"Error rendering charts: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
 
 # ==================================================================
