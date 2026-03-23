@@ -25,6 +25,7 @@ BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
 
 OPTIMISE_URL = BASE_URI + 'optimise'
 EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
+TOP_CANCELLATIONS_URL = BASE_URI + 'top-cancellations'
 
 
 # ------------------------------------------------------------------
@@ -229,64 +230,52 @@ with tab1:
             # ------------------------------------------------------------------
             left_col, right_col = st.columns([3, 2])
 
-            # --- Left: Revenue comparison chart ---
+            # --- Left: Top 3 likely cancellations ---
             with left_col:
-                import plotly.graph_objects as go
-
-                st.subheader("Revenue Comparison")
+                st.subheader("Top 3 Likely Cancellations")
                 st.caption(
-                    f"Expected revenue for **{selected_room}** on **{selected_date}**"
+                    f"Bookings for **{selected_room}** on **{selected_date}** with highest risk"
                 )
 
-                cancel_rate  = row["expected_cancellations"] / row["total_bookings"] if row["total_bookings"] > 0 else 0
-                extra_shows  = row["recommended_extra"] * (1 - cancel_rate)
-                mean_adr     = row["mean_adr"]
-
-                rev_without = row["expected_show_ups"] * mean_adr
-                rev_with    = rev_without + row["net_benefit"]
-
-                fig_rev = go.Figure()
-
-                fig_rev.add_trace(go.Bar(
-                    name="Without Overbooking",
-                    x=["Without Overbooking", "With Overbooking"],
-                    y=[rev_without, rev_with],
-                    marker_color=["#2ecc71", "#1abc9c"],
-                    text=[f"€{rev_without:,.0f}", f"€{rev_with:,.0f}"],
-                    textposition="outside",
-                    cliponaxis=False,
-                    showlegend=False,
-                ))
-
-                # Arrow annotation: bottom of right bar top → net benefit label
-                fig_rev.add_annotation(
-                    x="With Overbooking",
-                    y=rev_with,
-                    ax="Without Overbooking",
-                    ay=rev_without,
-                    axref="x",
-                    ayref="y",
-                    text=f"<b>+€{row['net_benefit']:,.0f}</b>",
-                    showarrow=True,
-                    arrowhead=2,
-                    arrowsize=1.2,
-                    arrowwidth=2,
-                    arrowcolor="#f39c12",
-                    font=dict(size=14, color="#f39c12"),
-                    xanchor="left",
-                    yanchor="middle",
+                # Fetch top 3 from API
+                top_3_result = api_get(
+                    TOP_CANCELLATIONS_URL,
+                    {
+                        "hotel": selected_hotel,
+                        "arrival_date": str(selected_date),
+                        "room_type": selected_room,
+                    },
+                    timeout=30,
+                    max_retries=2
                 )
 
-                fig_rev.update_layout(
-                    height=380,
-                    margin=dict(l=0, r=20, t=40, b=0),
-                    showlegend=False,
-                    yaxis=dict(title="Revenue (€)", showgrid=False, tickprefix="€", tickformat=","),
-                    xaxis=dict(showgrid=False),
-                    bargap=0.4,
-                )
-
-                st.plotly_chart(fig_rev, use_container_width=True)
+                if "error" in top_3_result:
+                    st.warning(f"Could not load top cancellations: {top_3_result['error']}")
+                else:
+                    top_3_data = top_3_result.get("top_3", [])
+                    if not top_3_data:
+                        st.info("No booking data available.")
+                    else:
+                        top_3_df = pd.DataFrame(top_3_data)
+                        
+                        # Formatting for display
+                        top_3_df["cancel_prob"] = (top_3_df["cancel_prob"] * 100).map("{:.1f}%".format)
+                        top_3_df["adr"] = top_3_df["adr"].map("€{:.2f}".format)
+                        
+                        # Rename columns for presentation
+                        col_mapping = {
+                            "lead_time": "Lead Time (days)",
+                            "adr": "ADR",
+                            "market_segment": "Market Segment",
+                            "deposit_type": "Deposit",
+                            "customer_type": "Customer",
+                            "cancel_prob": "Cancel Risk"
+                        }
+                        top_3_df = top_3_df.rename(columns=col_mapping)
+                        
+                        # Reorder to match mapping order
+                        display_cols = [v for k, v in col_mapping.items() if v in top_3_df.columns]
+                        st.table(top_3_df[display_cols])
 
             # --- Right: SHAP chart ---
             with right_col:
