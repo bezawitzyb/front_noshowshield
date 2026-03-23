@@ -442,7 +442,7 @@ with tab2:
         with left_col:
             st.subheader("Booking Details")
             details = pd.DataFrame(
-                {"Field": list(booking.keys()), "Value": list(booking.values())}
+                {"Field": list(booking.keys()), "Value": [str(v) for v in booking.values()]}
             ).set_index("Field")
             st.dataframe(details, use_container_width=True)
 
