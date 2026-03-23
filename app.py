@@ -405,7 +405,7 @@ with tab1:
                                 "room_type": selected_room,
                                 "hotel": selected_hotel,
                             },
-                            timeout=60,
+                            timeout=180,
                             max_retries=2,
                         )
                     st.session_state[cache_key] = shap_result
@@ -711,7 +711,7 @@ RANDOM_BOOKING_URL = BASE_URI + 'random-booking'
 EXPLAIN_LOCAL_URL  = BASE_URI + 'explain/local'
 
 
-def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
+def api_post(url: str, payload: dict, timeout: int = 180, max_retries: int = 2):
     """POST request with retries. Returns JSON or a dict with an 'error' key."""
     for attempt in range(1, max_retries + 1):
         try:
