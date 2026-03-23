@@ -110,217 +110,347 @@ if st.sidebar.button("Get Recommendations", type="primary", use_container_width=
         st.session_state["max_risk"] = max_risk
 
 
-# ------------------------------------------------------------------
-# Display results (only if loaded)
-# ------------------------------------------------------------------
-if "results" not in st.session_state:
-    st.info("Adjust settings in the sidebar and click **Get Recommendations** to start.")
-    st.stop()
-
-results = st.session_state["results"]
-
-# ------------------------------------------------------------------
-# Parse API response
-# ------------------------------------------------------------------
-recs = pd.DataFrame(results["recommendations"])
-recs["arrival_date"] = pd.to_datetime(recs["arrival_date"])
-
-metrics = results["metrics"]
-model_info = results["model_info"]
+# ==================================================================
+# TABS
+# ==================================================================
+tab1, tab2 = st.tabs(["Overbooking Recommendations", "Single Booking Prediction"])
 
 
-# ------------------------------------------------------------------
-# Sidebar — filters
-# ------------------------------------------------------------------
-st.sidebar.header("Filters")
-
-available_dates = sorted(recs["arrival_date"].dt.date.unique())
-selected_date = st.sidebar.selectbox("Select date", available_dates)
-
-available_rooms = sorted(recs["assigned_room_type"].unique())
-selected_room = st.sidebar.selectbox("Select room type", available_rooms)
-
-
-# ------------------------------------------------------------------
-# Sidebar — model & evaluation metrics
-# ------------------------------------------------------------------
-st.sidebar.header("Model Info")
-st.sidebar.caption(model_info.get("model_type", "XGBoost"))
-
-metrics_df = pd.DataFrame(
-    {"Metric": list(metrics.keys()), "Score": list(metrics.values())}
-).set_index("Metric")
-st.sidebar.table(metrics_df)
-
-st.caption(
-    f"Relocation cost = €{st.session_state.get('relocation_cost', relocation_cost):.0f}  ·  "
-    f"Max risk = {st.session_state.get('max_risk', max_risk) * 100:.1f}%  ·  "
-    f"Model AUC = {metrics.get('auc', '—')}"
-)
-
-
-# ------------------------------------------------------------------
-# Filter recommendations for selected date + room type
-# ------------------------------------------------------------------
-filtered = recs[
-    (recs["arrival_date"].dt.date == selected_date)
-    & (recs["assigned_room_type"] == selected_room)
-]
-
-
-# ------------------------------------------------------------------
-# Display the prediction
-# ------------------------------------------------------------------
-st.subheader("Recommendation")
-
-if filtered.empty:
-    st.warning("No data available for this selection.")
-else:
-    row = filtered.iloc[0]
-
-    # --- Top metrics row ---
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Capacity", int(row["capacity"]))
-    col2.metric("Current Bookings", int(row["total_bookings"]))
-    col3.metric("Expected Show-ups", round(row["expected_show_ups"], 1))
-
-    st.divider()
-
-    col4, col5, col6 = st.columns(3)
-    col4.metric(
-        "Recommended Extra Bookings",
-        int(row["recommended_extra"]),
-    )
-    col5.metric(
-        "Net Benefit (€)",
-        f"€{row['net_benefit']:.2f}",
-    )
-    col6.metric(
-        "Relocation Risk",
-        f"{row['relocation_probability'] * 100:.2f}%",
-    )
-
-    st.divider()
-
+# ==================================================================
+# TAB 1 — Bezas CODE
+# Note: st.stop() replaced with if/else so tab 2 can render.
+# Only other change: nlargest(10) → nlargest(5) per product request.
+# ==================================================================
+with tab1:
     # ------------------------------------------------------------------
-    # SHAP Explainability + Detailed table — two-column layout
+    # Display results (only if loaded)
     # ------------------------------------------------------------------
-    left_col, right_col = st.columns([3, 2])
+    if "results" not in st.session_state:
+        st.info("Adjust settings in the sidebar and click **Get Recommendations** to start.")
+    else:
+        results = st.session_state["results"]
 
-    # --- Left: Detailed table ---
-    with left_col:
-        st.subheader("Detailed View")
+        # ------------------------------------------------------------------
+        # Parse API response
+        # ------------------------------------------------------------------
+        recs = pd.DataFrame(results["recommendations"])
+        recs["arrival_date"] = pd.to_datetime(recs["arrival_date"])
 
-        display_cols = [
-            "arrival_date",
-            "assigned_room_type",
-            "capacity",
-            "total_bookings",
-            "expected_show_ups",
-            "expected_cancellations",
-            "recommended_extra",
-            "net_benefit",
-            "relocation_probability",
+        metrics = results["metrics"]
+        model_info = results["model_info"]
+
+
+        # ------------------------------------------------------------------
+        # Sidebar — filters
+        # ------------------------------------------------------------------
+        st.sidebar.header("Filters")
+
+        available_dates = sorted(recs["arrival_date"].dt.date.unique())
+        selected_date = st.sidebar.selectbox("Select date", available_dates)
+
+        available_rooms = sorted(recs["assigned_room_type"].unique())
+        selected_room = st.sidebar.selectbox("Select room type", available_rooms)
+
+
+        # ------------------------------------------------------------------
+        # Sidebar — model & evaluation metrics
+        # ------------------------------------------------------------------
+        st.sidebar.header("Model Info")
+        st.sidebar.caption(model_info.get("model_type", "XGBoost"))
+
+        metrics_df = pd.DataFrame(
+            {"Metric": list(metrics.keys()), "Score": list(metrics.values())}
+        ).set_index("Metric")
+        st.sidebar.table(metrics_df)
+
+        st.caption(
+            f"Relocation cost = €{st.session_state.get('relocation_cost', relocation_cost):.0f}  ·  "
+            f"Max risk = {st.session_state.get('max_risk', max_risk) * 100:.1f}%  ·  "
+            f"Model AUC = {metrics.get('auc', '—')}"
+        )
+
+
+        # ------------------------------------------------------------------
+        # Filter recommendations for selected date + room type
+        # ------------------------------------------------------------------
+        filtered = recs[
+            (recs["arrival_date"].dt.date == selected_date)
+            & (recs["assigned_room_type"] == selected_room)
         ]
 
-        nice_df = filtered[display_cols].rename(columns={
-            "arrival_date": "Date",
-            "assigned_room_type": "Room",
-            "capacity": "Capacity",
-            "total_bookings": "Bookings",
-            "expected_show_ups": "Expected Show-ups",
-            "expected_cancellations": "Expected Cancels",
-            "recommended_extra": "Recommended Extra",
-            "net_benefit": "Net €",
-            "relocation_probability": "Relocation Risk",
-        })
 
-        st.dataframe(
-            nice_df.style.format({
-                "Expected Show-ups": "{:.1f}",
-                "Expected Cancels": "{:.1f}",
-                "Net €": "€{:.2f}",
-                "Relocation Risk": "{:.2%}",
-            }),
-            use_container_width=True,
-        )
+        # ------------------------------------------------------------------
+        # Display the prediction
+        # ------------------------------------------------------------------
+        st.subheader("Recommendation")
 
-    # --- Right: SHAP chart ---
-    with right_col:
-        st.subheader("SHAP — Top Risk Factors")
-        st.caption(
-            f"Why bookings on **{selected_date}** for room type **{selected_room}** "
-            f"are likely to cancel"
-        )
-
-        # Cache key includes both date and room type
-        selected_date_str = str(selected_date)
-        cache_key = f"shap_{selected_date_str}_{selected_room}"
-
-        if cache_key not in st.session_state:
-            with st.spinner("Loading SHAP explanations …"):
-                shap_result = api_get(
-                    EXPLAIN_GLOBAL_URL,
-                    {
-                        "selected_date": selected_date_str,
-                        "room_type": selected_room,
-                    },
-                    timeout=60,
-                    max_retries=2,
-                )
-            st.session_state[cache_key] = shap_result
+        if filtered.empty:
+            st.warning("No data available for this selection.")
         else:
-            shap_result = st.session_state[cache_key]
+            row = filtered.iloc[0]
 
-        if "error" in shap_result:
-            st.warning(f"Could not load SHAP data: {shap_result['error']}")
+            # --- Top metrics row ---
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Capacity", int(row["capacity"]))
+            col2.metric("Current Bookings", int(row["total_bookings"]))
+            col3.metric("Expected Show-ups", round(row["expected_show_ups"], 1))
 
-        elif shap_result.get("message"):
-            st.info(shap_result["message"])
+            st.divider()
 
-        elif shap_result.get("grouped_global_shap"):
-            shap_df = pd.DataFrame(shap_result["grouped_global_shap"])
+            col4, col5, col6 = st.columns(3)
+            col4.metric(
+                "Recommended Extra Bookings",
+                int(row["recommended_extra"]),
+            )
+            col5.metric(
+                "Net Benefit (€)",
+                f"€{row['net_benefit']:.2f}",
+            )
+            col6.metric(
+                "Relocation Risk",
+                f"{row['relocation_probability'] * 100:.2f}%",
+            )
 
-            # Clean up feature names for display
-            shap_df["feature"] = (
-                shap_df["feature_group"]
-                .str.replace("cat_ordinal__", "", regex=False)
+            st.divider()
+
+            # ------------------------------------------------------------------
+            # SHAP Explainability + Detailed table — two-column layout
+            # ------------------------------------------------------------------
+            left_col, right_col = st.columns([3, 2])
+
+            # --- Left: Detailed table ---
+            with left_col:
+                st.subheader("Detailed View")
+
+                display_cols = [
+                    "arrival_date",
+                    "assigned_room_type",
+                    "capacity",
+                    "total_bookings",
+                    "expected_show_ups",
+                    "expected_cancellations",
+                    "recommended_extra",
+                    "net_benefit",
+                    "relocation_probability",
+                ]
+
+                nice_df = filtered[display_cols].rename(columns={
+                    "arrival_date": "Date",
+                    "assigned_room_type": "Room",
+                    "capacity": "Capacity",
+                    "total_bookings": "Bookings",
+                    "expected_show_ups": "Expected Show-ups",
+                    "expected_cancellations": "Expected Cancels",
+                    "recommended_extra": "Recommended Extra",
+                    "net_benefit": "Net €",
+                    "relocation_probability": "Relocation Risk",
+                })
+
+                st.dataframe(
+                    nice_df.style.format({
+                        "Expected Show-ups": "{:.1f}",
+                        "Expected Cancels": "{:.1f}",
+                        "Net €": "€{:.2f}",
+                        "Relocation Risk": "{:.2%}",
+                    }),
+                    use_container_width=True,
+                )
+
+            # --- Right: SHAP chart ---
+            with right_col:
+                st.subheader("SHAP — Top Risk Factors")
+                st.caption(
+                    f"Why bookings on **{selected_date}** for room type **{selected_room}** "
+                    f"are likely to cancel"
+                )
+
+                # Cache key includes both date and room type
+                selected_date_str = str(selected_date)
+                cache_key = f"shap_{selected_date_str}_{selected_room}"
+
+                if cache_key not in st.session_state:
+                    with st.spinner("Loading SHAP explanations …"):
+                        shap_result = api_get(
+                            EXPLAIN_GLOBAL_URL,
+                            {
+                                "selected_date": selected_date_str,
+                                "room_type": selected_room,
+                            },
+                            timeout=60,
+                            max_retries=2,
+                        )
+                    st.session_state[cache_key] = shap_result
+                else:
+                    shap_result = st.session_state[cache_key]
+
+                if "error" in shap_result:
+                    st.warning(f"Could not load SHAP data: {shap_result['error']}")
+
+                elif shap_result.get("message"):
+                    st.info(shap_result["message"])
+
+                elif shap_result.get("grouped_global_shap"):
+                    shap_df = pd.DataFrame(shap_result["grouped_global_shap"])
+
+                    # Clean up feature names for display
+                    shap_df["feature"] = (
+                        shap_df["feature_group"]
+                        .str.replace("cat_ordinal__", "", regex=False)
+                        .str.replace("_", " ", regex=False)
+                        .str.title()
+                    )
+
+                    # Top 5 features, sorted ascending for horizontal bar
+                    top_shap = (
+                        shap_df
+                        .nlargest(5, "mean_abs_shap")
+                        .sort_values("mean_abs_shap")
+                    )
+
+                    fig = px.bar(
+                        top_shap,
+                        x="mean_abs_shap",
+                        y="feature",
+                        orientation="h",
+                        labels={
+                            "mean_abs_shap": "Mean |SHAP Value|",
+                            "feature": "",
+                        },
+                        color="mean_abs_shap",
+                        color_continuous_scale=["#2ecc71", "#f39c12", "#e74c3c"],
+                    )
+                    fig.update_layout(
+                        height=400,
+                        margin=dict(l=0, r=0, t=10, b=0),
+                        showlegend=False,
+                        coloraxis_showscale=False,
+                        yaxis=dict(tickfont=dict(size=12)),
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # st.caption(
+                    #     f"Based on **{shap_result.get('n_bookings', '?')}** "
+                    #     f"**{selected_room}** bookings arriving on {selected_date_str}"
+                    # )
+                else:
+                    st.info("No SHAP data available for this date and room type.")
+
+
+# ==================================================================
+# TAB 2 — Alex CODE (single booking prediction)
+# ==================================================================
+
+# Additional URL constants used only by tab 2
+RANDOM_BOOKING_URL = BASE_URI + 'random-booking'
+EXPLAIN_LOCAL_URL  = BASE_URI + 'explain/local'
+
+
+def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
+    """POST request with retries. Returns JSON or a dict with an 'error' key."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(url, json=payload, timeout=timeout)
+            if response.status_code != 200:
+                return {"error": f"API returned status {response.status_code}: {response.text}"}
+            return response.json()
+        except requests.exceptions.Timeout:
+            if attempt < max_retries:
+                time.sleep(2)
+                continue
+            return {"error": "API request timed out."}
+        except requests.exceptions.ConnectionError:
+            if attempt < max_retries:
+                time.sleep(2)
+                continue
+            return {"error": "Could not connect to the API."}
+    return {"error": "Unexpected error during API call."}
+
+
+with tab2:
+    st.subheader("Single Booking Prediction")
+    st.markdown(
+        "Pick a random booking from the test set to see the model's "
+        "cancellation prediction and the SHAP values explaining it."
+    )
+
+    if st.button("🎲 Pick Random Booking", type="primary"):
+        with st.spinner("Fetching a random booking …"):
+            booking_result = api_get(RANDOM_BOOKING_URL, {}, timeout=30, max_retries=2)
+        if "error" in booking_result:
+            st.error(booking_result["error"])
+        else:
+            with st.spinner("Running prediction and SHAP explanation …"):
+                explain_result = api_post(EXPLAIN_LOCAL_URL, booking_result["booking"])
+            if "error" in explain_result:
+                st.error(explain_result["error"])
+            else:
+                st.session_state["single_booking"] = booking_result["booking"]
+                st.session_state["single_actual"]  = booking_result["actual_outcome"]
+                st.session_state["single_explain"] = explain_result
+
+    if "single_booking" not in st.session_state:
+        st.info("Click **Pick Random Booking** to load a booking from the test set.")
+    else:
+        booking = st.session_state["single_booking"]
+        actual  = st.session_state["single_actual"]
+        explain = st.session_state["single_explain"]
+
+        prob       = explain["cancellation_probability"]
+        prediction = explain.get("prediction", int(prob >= 0.5))
+
+        # --- Top metrics row ---
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Prediction", "Will Cancel" if prediction == 1 else "Won't Cancel")
+        col2.metric("Cancellation Probability", f"{prob * 100:.1f}%")
+        col3.metric("Actual Outcome", "Canceled" if actual == 1 else "Not Canceled")
+
+        st.divider()
+
+        # --- Two-column layout: booking details | SHAP chart ---
+        left_col, right_col = st.columns([3, 2])
+
+        with left_col:
+            st.subheader("Booking Details")
+            details = pd.DataFrame(
+                {"Field": list(booking.keys()), "Value": list(booking.values())}
+            ).set_index("Field")
+            st.dataframe(details, use_container_width=True)
+
+        with right_col:
+            st.subheader("SHAP — Top 5 Risk Factors")
+            st.caption("Features pushing this booking toward cancellation")
+
+            # Keep only positive SHAP values (reasons to cancel), top 5
+            shap_df = pd.DataFrame(explain["grouped_local_shap"])
+            top_shap = (
+                shap_df[shap_df["shap_value"] > 0]
+                .nlargest(5, "shap_value")
+                .sort_values("shap_value")
+            )
+            top_shap["feature"] = (
+                top_shap["feature_group"]
                 .str.replace("_", " ", regex=False)
                 .str.title()
             )
 
-            # Top 10 features, sorted ascending for horizontal bar
-            top_shap = (
-                shap_df
-                .nlargest(10, "mean_abs_shap")
-                .sort_values("mean_abs_shap")
-            )
-
-            fig = px.bar(
-                top_shap,
-                x="mean_abs_shap",
-                y="feature",
-                orientation="h",
-                labels={
-                    "mean_abs_shap": "Mean |SHAP Value|",
-                    "feature": "",
-                },
-                color="mean_abs_shap",
-                color_continuous_scale=["#2ecc71", "#f39c12", "#e74c3c"],
-            )
-            fig.update_layout(
-                height=400,
-                margin=dict(l=0, r=0, t=10, b=0),
-                showlegend=False,
-                coloraxis_showscale=False,
-                yaxis=dict(tickfont=dict(size=12)),
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-            # st.caption(
-            #     f"Based on **{shap_result.get('n_bookings', '?')}** "
-            #     f"**{selected_room}** bookings arriving on {selected_date_str}"
-            # )
-        else:
-            st.info("No SHAP data available for this date and room type.")
+            if top_shap.empty:
+                st.info("No cancellation risk factors found for this booking.")
+            else:
+                fig = px.bar(
+                    top_shap,
+                    x="shap_value",
+                    y="feature",
+                    orientation="h",
+                    labels={"shap_value": "SHAP Value", "feature": ""},
+                    color="shap_value",
+                    color_continuous_scale=["#f39c12", "#e74c3c"],
+                )
+                fig.update_layout(
+                    height=400,
+                    margin=dict(l=0, r=0, t=10, b=0),
+                    showlegend=False,
+                    coloraxis_showscale=False,
+                    yaxis=dict(tickfont=dict(size=12)),
+                )
+                st.plotly_chart(fig, use_container_width=True)
