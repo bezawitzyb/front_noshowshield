@@ -229,45 +229,64 @@ with tab1:
             # ------------------------------------------------------------------
             left_col, right_col = st.columns([3, 2])
 
-            # --- Left: Detailed table ---
+            # --- Left: Revenue comparison chart ---
             with left_col:
-                st.subheader("Detailed View")
+                import plotly.graph_objects as go
 
-                display_cols = [
-                    "arrival_date",
-                    "hotel",
-                    "assigned_room_type",
-                    "capacity",
-                    "total_bookings",
-                    "expected_show_ups",
-                    "expected_cancellations",
-                    "recommended_extra",
-                    "net_benefit",
-                    "relocation_probability",
-                ]
-
-                nice_df = filtered[display_cols].rename(columns={
-                    "arrival_date": "Date",
-                    "hotel": "Hotel",
-                    "assigned_room_type": "Room",
-                    "capacity": "Capacity",
-                    "total_bookings": "Bookings",
-                    "expected_show_ups": "Expected Show-ups",
-                    "expected_cancellations": "Expected Cancels",
-                    "recommended_extra": "Recommended Extra",
-                    "net_benefit": "Net €",
-                    "relocation_probability": "Relocation Risk",
-                })
-
-                st.dataframe(
-                    nice_df.style.format({
-                        "Expected Show-ups": "{:.1f}",
-                        "Expected Cancels": "{:.1f}",
-                        "Net €": "€{:.2f}",
-                        "Relocation Risk": "{:.2%}",
-                    }),
-                    use_container_width=True,
+                st.subheader("Revenue Comparison")
+                st.caption(
+                    f"Expected revenue for **{selected_room}** on **{selected_date}**"
                 )
+
+                cancel_rate  = row["expected_cancellations"] / row["total_bookings"] if row["total_bookings"] > 0 else 0
+                extra_shows  = row["recommended_extra"] * (1 - cancel_rate)
+                mean_adr     = row["mean_adr"]
+
+                rev_without = row["expected_show_ups"] * mean_adr
+                rev_with    = rev_without + row["net_benefit"]
+
+                fig_rev = go.Figure()
+
+                fig_rev.add_trace(go.Bar(
+                    name="Without Overbooking",
+                    x=["Without Overbooking", "With Overbooking"],
+                    y=[rev_without, rev_with],
+                    marker_color=["#2ecc71", "#1abc9c"],
+                    text=[f"€{rev_without:,.0f}", f"€{rev_with:,.0f}"],
+                    textposition="outside",
+                    cliponaxis=False,
+                    showlegend=False,
+                ))
+
+                # Arrow annotation: bottom of right bar top → net benefit label
+                fig_rev.add_annotation(
+                    x="With Overbooking",
+                    y=rev_with,
+                    ax="Without Overbooking",
+                    ay=rev_without,
+                    axref="x",
+                    ayref="y",
+                    text=f"<b>+€{row['net_benefit']:,.0f}</b>",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1.2,
+                    arrowwidth=2,
+                    arrowcolor="#f39c12",
+                    font=dict(size=14, color="#f39c12"),
+                    xanchor="left",
+                    yanchor="middle",
+                )
+
+                fig_rev.update_layout(
+                    height=380,
+                    margin=dict(l=0, r=20, t=40, b=0),
+                    showlegend=False,
+                    yaxis=dict(title="Revenue (€)", showgrid=False, tickprefix="€", tickformat=","),
+                    xaxis=dict(showgrid=False),
+                    bargap=0.4,
+                )
+
+                st.plotly_chart(fig_rev, use_container_width=True)
 
             # --- Right: SHAP chart ---
             with right_col:
