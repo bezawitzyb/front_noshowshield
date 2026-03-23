@@ -101,21 +101,19 @@ def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
 def compute_pmf_exact(probs):
     """
     Compute exact Poisson-Binomial PMF using dynamic programming.
-    probs: array of probabilities (0-1)
-    Returns: x (array of cancellation counts), pmf (probabilities)
+    Returns: x (list of ints), pmf (list of floats)
     """
     probs = np.asarray(probs, dtype=np.float64)
     n = len(probs)
 
     if n == 0:
-        return np.array([0]), np.array([1.0])
+        return [0], [1.0]
 
     # DP array: pmf[k] = probability of k cancellations
     pmf = np.zeros(n + 1)
     pmf[0] = 1.0
 
     for p in probs:
-        # Probability this booking cancels
         new_pmf = np.zeros(n + 1)
         for k in range(n + 1):
             if k == 0:
@@ -124,10 +122,8 @@ def compute_pmf_exact(probs):
                 new_pmf[k] = pmf[k-1] * p + pmf[k] * (1 - p)
         pmf = new_pmf
 
-    x = np.arange(n + 1)
-
-    # Normalize to ensure sum is exactly 1
-    pmf = pmf / (pmf.sum() + 1e-10)
+    x = list(range(n + 1))
+    pmf = pmf.tolist()
 
     return x, pmf
 
@@ -142,27 +138,28 @@ def compute_pmf_normal(probs):
     variance = np.sum(probs * (1 - probs))
 
     if variance < 1e-6:
-        # Nearly deterministic
-        x = np.array([int(round(mean))])
-        pmf = np.array([1.0])
+        x = [int(round(mean))]
+        pmf = [1.0]
         return x, pmf
 
     std = np.sqrt(variance)
 
-    # Create range covering mean ± 4 std devs, but at least 10 points
+    # Create range covering mean ± 4 std devs
     x_min = max(0, int(mean - 4*std))
     x_max = min(n, int(mean + 4*std))
 
     # Ensure reasonable range
-    if x_max - x_min < 10:
-        x_min = max(0, x_min - 5)
-        x_max = min(n, x_max + 5)
+    if x_max <= x_min:
+        x_max = x_min + 1
 
-    x = np.arange(x_min, x_max + 1)
+    x = list(range(x_min, x_max + 1))
 
     # Normal PDF
-    pmf = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-    pmf = pmf / (pmf.sum() + 1e-10)
+    pmf = [(1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((xi - mean) / std) ** 2) for xi in x]
+
+    # Normalize
+    total = sum(pmf)
+    pmf = [p / total for p in pmf]
 
     return x, pmf
 
@@ -170,19 +167,20 @@ def compute_pmf_normal(probs):
 def compute_pmf_fast(cancel_probs):
     """
     Compute PMF using exact method for small n, Normal approximation for large n.
+    Returns Python lists (not numpy arrays) for Plotly compatibility.
     """
     try:
         # Ensure numpy array and clean data
         probs = np.asarray(cancel_probs, dtype=np.float64)
 
-        # Handle NaN/inf
+        # Handle NaN/inf and clip to valid range
         probs = np.nan_to_num(probs, nan=0.5, posinf=1.0, neginf=0.0)
         probs = np.clip(probs, 0.0, 1.0)
 
         n = len(probs)
 
         if n == 0:
-            return np.array([0]), np.array([1.0])
+            return [0], [1.0]
         elif n <= 80:
             return compute_pmf_exact(probs)
         else:
@@ -192,7 +190,7 @@ def compute_pmf_fast(cancel_probs):
         st.error(f"PMF computation error: {e}")
         # Fallback to uniform
         n = len(cancel_probs) if cancel_probs is not None else 1
-        return np.arange(n + 1), np.ones(n + 1) / (n + 1)
+        return list(range(n + 1)), [1.0/(n+1)] * (n + 1)
 
 
 # ------------------------------------------------------------------
@@ -480,7 +478,7 @@ with tab1:
                     if len(cancel_probs_raw) == 0:
                         st.warning("No cancellation probabilities available.")
                     else:
-                        # Clean data
+                        # Clean data - ensure they're proper probabilities between 0 and 1
                         cancel_probs_raw = np.clip(cancel_probs_raw, 0.0, 1.0)
 
                         mean_cancel = float(np.mean(cancel_probs_raw))
@@ -527,28 +525,40 @@ with tab1:
                             m2.metric("Expected cancellations", f"{expected:.1f}")
                             m3.metric("Std deviation", f"{std_dev:.2f}")
 
-                            # Compute and display distribution
+                            # Compute distribution - returns Python lists
                             x_cur, pmf_cur = compute_pmf_fast(current_probs)
 
-                            if len(x_cur) > 0 and len(pmf_cur) > 0 and np.sum(pmf_cur) > 0:
-                                fig_cur = go.Figure()
-                                fig_cur.add_trace(go.Bar(
-                                    x=x_cur,
-                                    y=pmf_cur,
-                                    marker_color="#6366f1",
-                                    hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
-                                ))
+                            # DEBUG: Show data being passed to Plotly
+                            # st.write(f"Debug: x_cur={x_cur[:5]}..., pmf_cur={pmf_cur[:5]}..., sum={sum(pmf_cur):.4f}")
 
-                                # Force x-axis to be reasonable
+                            if len(x_cur) > 0 and len(pmf_cur) > 0 and sum(pmf_cur) > 0:
+                                # Create bar chart with explicit data
+                                fig_cur = go.Figure(data=[
+                                    go.Bar(
+                                        x=x_cur,
+                                        y=pmf_cur,
+                                        marker_color="#6366f1",
+                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
+                                    )
+                                ])
+
+                                # Set layout with proper ranges
+                                y_max = max(pmf_cur) * 1.2 if pmf_cur else 0.1
+
                                 fig_cur.update_layout(
                                     height=300,
                                     margin=dict(l=0, r=0, t=20, b=0),
                                     xaxis=dict(
                                         title="Number of Cancellations",
-                                        range=[-0.5, n_current + 0.5],
-                                        dtick=max(1, n_current // 5)
+                                        tickmode='linear',
+                                        tick0=0,
+                                        dtick=max(1, n_current // 5),
+                                        range=[-0.5, n_current + 0.5]
                                     ),
-                                    yaxis=dict(title="Probability", range=[0, max(pmf_cur) * 1.1]),
+                                    yaxis=dict(
+                                        title="Probability",
+                                        range=[0, y_max]
+                                    ),
                                     showlegend=False,
                                     template="plotly_white",
                                     bargap=0.2
@@ -557,7 +567,6 @@ with tab1:
                                 st.plotly_chart(fig_cur, use_container_width=True)
                             else:
                                 st.error("Failed to compute distribution")
-                                st.write(f"Debug: x_cur={x_cur}, pmf_cur sum={np.sum(pmf_cur)}")
 
                             # Individual probability pills
                             st.caption("Individual booking cancel probabilities:")
@@ -601,52 +610,68 @@ with tab1:
                             # Compute distribution
                             x_rec, pmf_rec = compute_pmf_fast(rec_probs)
 
-                            if len(x_rec) > 0 and len(pmf_rec) > 0 and np.sum(pmf_rec) > 0:
-                                fig_rec = go.Figure()
-
-                                # Color based on type
+                            if len(x_rec) > 0 and len(pmf_rec) > 0 and sum(pmf_rec) > 0:
+                                # Determine color based on whether showing extras
                                 is_all_current = n_rec <= len(cancel_probs_raw)
-                                color = "#6366f1" if is_all_current else "#f97316"
+                                bar_color = "#6366f1" if is_all_current else "#f97316"
 
-                                fig_rec.add_trace(go.Bar(
-                                    x=x_rec,
-                                    y=pmf_rec,
-                                    marker_color=color,
-                                    hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
-                                ))
-
-                                # Add threshold line
-                                if min_needed > 0:
-                                    fig_rec.add_vline(
-                                        x=min_needed - 0.5,
-                                        line_dash="dash",
-                                        line_color="red",
-                                        line_width=2,
-                                        annotation_text=f"Need ≥{min_needed}",
-                                        annotation_position="top right"
+                                fig_rec = go.Figure(data=[
+                                    go.Bar(
+                                        x=x_rec,
+                                        y=pmf_rec,
+                                        marker_color=bar_color,
+                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
                                     )
+                                ])
 
-                                # Set reasonable x-axis range
-                                x_max_display = max(n_rec, min_needed + 5) if min_needed > 0 else n_rec
+                                # Add threshold line if needed
+                                shapes = []
+                                annotations = []
+                                if min_needed > 0:
+                                    shapes.append(dict(
+                                        type='line',
+                                        x0=min_needed - 0.5,
+                                        x1=min_needed - 0.5,
+                                        y0=0,
+                                        y1=max(pmf_rec) * 1.1,
+                                        line=dict(color='red', width=2, dash='dash')
+                                    ))
+                                    annotations.append(dict(
+                                        x=min_needed,
+                                        y=max(pmf_rec) * 1.05,
+                                        text=f"Need ≥{min_needed}",
+                                        showarrow=False,
+                                        font=dict(color='red', size=12)
+                                    ))
+
+                                y_max_rec = max(pmf_rec) * 1.2 if pmf_rec else 0.1
 
                                 fig_rec.update_layout(
                                     height=300,
                                     margin=dict(l=0, r=0, t=20, b=0),
                                     xaxis=dict(
                                         title="Number of Cancellations",
-                                        range=[-0.5, x_max_display + 0.5]
+                                        tickmode='linear',
+                                        tick0=0,
+                                        dtick=max(1, n_rec // 5),
+                                        range=[-0.5, max(n_rec, min_needed + 5) + 0.5]
                                     ),
-                                    yaxis=dict(title="Probability", range=[0, max(pmf_rec) * 1.1]),
+                                    yaxis=dict(
+                                        title="Probability",
+                                        range=[0, y_max_rec]
+                                    ),
                                     showlegend=False,
                                     template="plotly_white",
-                                    bargap=0.2
+                                    bargap=0.2,
+                                    shapes=shapes,
+                                    annotations=annotations
                                 )
 
                                 st.plotly_chart(fig_rec, use_container_width=True)
 
                                 # Safety buffer calculation
                                 if min_needed > 0 and len(x_rec) > 0:
-                                    prob_safe = float(np.sum(pmf_rec[x_rec >= min_needed]))
+                                    prob_safe = sum([p for x, p in zip(x_rec, pmf_rec) if x >= min_needed])
                                     st.markdown(f"**Safety buffer:** {prob_safe*100:.1f}% chance of ≥{min_needed} cancellations")
                             else:
                                 st.error("Failed to compute distribution")
