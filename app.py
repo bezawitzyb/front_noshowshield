@@ -13,6 +13,7 @@ import requests
 import time
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 
 
 # ------------------------------------------------------------------
@@ -26,7 +27,6 @@ BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
 
 OPTIMISE_URL = BASE_URI + 'optimise'
 EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
-CANCELLATION_DIST_URL = BASE_URI + 'optimise/cancellation-distribution'
 
 
 # ------------------------------------------------------------------
@@ -96,6 +96,33 @@ def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
 
 
 # ------------------------------------------------------------------
+# PMF computation helper (client-side)
+# ------------------------------------------------------------------
+def compute_pmf_fast(cancel_probs):
+    """
+    Compute PMF using FFT (exact) for small n, Normal approximation for large n.
+    """
+    n = len(cancel_probs)
+    mean = np.sum(cancel_probs)
+    variance = np.sum(cancel_probs * (1 - cancel_probs))
+
+    # For large hotels, Normal approximation is instant and visually identical
+    if n > 80:
+        std = np.sqrt(variance)
+        x = np.arange(max(0, int(mean - 4*std)), min(n, int(mean + 4*std)) + 1)
+        pmf = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
+        pmf = pmf / pmf.sum()
+        return x, pmf
+
+    # For small hotels, use exact Poisson-Binomial via FFT (O(n log n))
+    omega = np.exp(2j * np.pi / (n + 1))
+    k = np.arange(n + 1)
+    prod = np.prod(1 - cancel_probs + cancel_probs * omega ** k[:, None], axis=1)
+    pmf = np.fft.ifft(prod).real
+    return np.arange(n + 1), pmf
+
+
+# ------------------------------------------------------------------
 # Load optimisation data — triggered by button
 # ------------------------------------------------------------------
 if st.sidebar.button("Get Recommendations", type="primary", use_container_width=True):
@@ -119,9 +146,7 @@ tab1, tab2 = st.tabs(["Overbooking Recommendations", "Single Booking Prediction"
 
 
 # ==================================================================
-# TAB 1 — Bezas CODE
-# Note: st.stop() replaced with if/else so tab 2 can render.
-# Only other change: nlargest(10) → nlargest(5) per product request.
+# TAB 1 — Overbooking Recommendations
 # ==================================================================
 with tab1:
     # ------------------------------------------------------------------
@@ -227,7 +252,7 @@ with tab1:
             st.divider()
 
             # ------------------------------------------------------------------
-            # SHAP Explainability + Detailed table — two-column layout
+            # Revenue Comparison + SHAP — two-column layout
             # ------------------------------------------------------------------
             left_col, right_col = st.columns([3, 2])
 
@@ -366,96 +391,182 @@ with tab1:
                     st.info("No SHAP data available for this date and room type.")
 
             # ------------------------------------------------------------------
-            # Cancellation Distribution Chart — full width below
+            # Cancellation Distribution Charts — Two interactive charts with sliders
             # ------------------------------------------------------------------
             st.divider()
-            st.subheader("Cancellation Risk Distribution")
-            st.caption(
-                f"Probability distribution of cancellation counts for **{selected_room}** on **{selected_date}**"
-            )
+            st.subheader("Cancellation Risk Analysis")
 
-            # Cache key for distribution data
-            dist_cache_key = f"dist_{selected_hotel}_{selected_date_str}_{selected_room}"
+            # Get data for both charts
+            cancel_probs = np.array(row["individual_probs"])
+            mean_cancel = cancel_probs.mean()
+            recommended_extra = int(row["recommended_extra"])
+            recommended_total = int(row["total_bookings"] + recommended_extra)
+            capacity = int(row["capacity"])
+            min_needed = max(0, recommended_total - capacity)
 
-            if dist_cache_key not in st.session_state:
-                with st.spinner("Loading cancellation distribution …"):
-                    dist_result = api_get(
-                        CANCELLATION_DIST_URL,
-                        {
-                            "selected_date": selected_date_str,
-                            "room_type": selected_room,
-                            "hotel": selected_hotel,
-                            "relocation_cost": st.session_state.get("relocation_cost", relocation_cost),
-                            "max_risk": st.session_state.get("max_risk", max_risk),
-                        },
-                        timeout=60,
-                        max_retries=2,
-                    )
-                st.session_state[dist_cache_key] = dist_result
+            # Prepare extended probabilities for recommended scenario
+            if recommended_extra > 0:
+                extended_probs = np.concatenate([
+                    cancel_probs,
+                    np.full(recommended_extra, mean_cancel)
+                ])
             else:
-                dist_result = st.session_state[dist_cache_key]
+                extended_probs = cancel_probs
 
-            if "error" in dist_result:
-                st.warning(f"Could not load distribution data: {dist_result['error']}")
-            else:
-                dist_data = dist_result["distribution"]
+            dist_col1, dist_col2 = st.columns(2)
 
-                fig_dist = go.Figure()
+            # --- LEFT CHART: Current Bookings ---
+            with dist_col1:
+                st.markdown("**Current Bookings**")
 
-                # Current state PMF
-                fig_dist.add_trace(go.Bar(
-                    x=dist_data["current"]["x"],
-                    y=dist_data["current"]["pmf"],
-                    name=f"Current ({dist_data['current']['n_bookings']} bookings)",
-                    marker_color="rgba(56, 189, 248, 0.7)",
+                n_current_max = len(cancel_probs)
+                n_current = st.slider(
+                    "Bookings processed",
+                    min_value=1,
+                    max_value=n_current_max,
+                    value=n_current_max,
+                    key="current_slider"
+                )
+
+                # Subset probabilities based on slider
+                current_probs = cancel_probs[:n_current]
+
+                # Metrics
+                outcomes = n_current + 1
+                expected = np.sum(current_probs)
+                std_dev = np.sqrt(np.sum(current_probs * (1 - current_probs)))
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Possible outcomes", outcomes)
+                m2.metric("Expected cancellations", f"{expected:.1f}")
+                m3.metric("Std deviation", f"{std_dev:.2f}")
+
+                # Distribution chart
+                x_cur, pmf_cur = compute_pmf_fast(current_probs)
+
+                fig_cur = go.Figure()
+                fig_cur.add_trace(go.Bar(
+                    x=x_cur,
+                    y=pmf_cur,
+                    marker_color="#6366f1",
                     hovertemplate="Cancellations: %{x}<br>Probability: %{y:.3f}<extra></extra>"
                 ))
 
-                # Recommended state PMF
-                fig_dist.add_trace(go.Bar(
-                    x=dist_data["recommended"]["x"],
-                    y=dist_data["recommended"]["pmf"],
-                    name=f"Recommended ({dist_data['recommended']['n_bookings']} bookings)",
-                    marker_color="rgba(251, 146, 60, 0.7)",
+                fig_cur.update_layout(
+                    height=300,
+                    margin=dict(l=0, r=0, t=20, b=0),
+                    xaxis_title="Number of Cancellations",
+                    yaxis_title="Probability",
+                    showlegend=False,
+                    template="plotly_white",
+                    bargap=0.2
+                )
+
+                st.plotly_chart(fig_cur, use_container_width=True)
+
+                # Individual probability pills
+                st.caption("Individual booking cancel probabilities:")
+                pills_html = "".join([
+                    f'<span style="background-color: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid #c7d2fe;">{int(p*100)}</span>'
+                    for p in current_probs
+                ])
+                st.markdown(pills_html, unsafe_allow_html=True)
+
+            # --- RIGHT CHART: Recommended Bookings ---
+            with dist_col2:
+                st.markdown("**Recommended Bookings** (Current + Extras)")
+
+                n_rec_max = len(extended_probs)
+                n_rec = st.slider(
+                    "Bookings processed",
+                    min_value=1,
+                    max_value=n_rec_max,
+                    value=n_rec_max,
+                    key="rec_slider"
+                )
+
+                # Subset probabilities based on slider
+                rec_probs = extended_probs[:n_rec]
+
+                # Metrics
+                outcomes_rec = n_rec + 1
+                expected_rec = np.sum(rec_probs)
+                std_dev_rec = np.sqrt(np.sum(rec_probs * (1 - rec_probs)))
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Possible outcomes", outcomes_rec)
+                m2.metric("Expected cancellations", f"{expected_rec:.1f}")
+                m3.metric("Std deviation", f"{std_dev_rec:.2f}")
+
+                # Distribution chart
+                x_rec, pmf_rec = compute_pmf_fast(rec_probs)
+
+                fig_rec = go.Figure()
+
+                # Color code based on whether we're showing extras
+                if n_rec <= len(cancel_probs):
+                    color = "#6366f1"  # Blue - only current
+                else:
+                    color = "#f97316"  # Orange - includes extras
+
+                fig_rec.add_trace(go.Bar(
+                    x=x_rec,
+                    y=pmf_rec,
+                    marker_color=color,
                     hovertemplate="Cancellations: %{x}<br>Probability: %{y:.3f}<extra></extra>"
                 ))
 
-                # Vertical line: minimum cancellations needed to avoid relocation
-                min_needed = dist_data["min_cancellations_needed"]
-                if min_needed > 0:
-                    fig_dist.add_vline(
+                # Add vertical line for safety threshold if showing full recommended
+                if n_rec == n_rec_max and min_needed > 0:
+                    fig_rec.add_vline(
                         x=min_needed - 0.5,
                         line_dash="dash",
                         line_color="red",
-                        annotation_text=f"Need ≥{min_needed} cancellations to avoid walks",
+                        annotation_text=f"Need ≥{min_needed}",
                         annotation_position="top right"
                     )
 
-                fig_dist.update_layout(
-                    title="Current vs Recommended Booking State",
+                fig_rec.update_layout(
+                    height=300,
+                    margin=dict(l=0, r=0, t=20, b=0),
                     xaxis_title="Number of Cancellations",
                     yaxis_title="Probability",
-                    barmode="overlay",
-                    bargap=0.1,
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    template="plotly_dark",
-                    height=400,
+                    showlegend=False,
+                    template="plotly_white",
+                    bargap=0.2
                 )
 
-                st.plotly_chart(fig_dist, use_container_width=True)
+                st.plotly_chart(fig_rec, use_container_width=True)
 
-                # Explanation text
-                if min_needed > 0:
-                    st.markdown(
-                        f"**How to read this:** The blue bars show the current cancellation probability distribution. "
-                        f"The orange bars show the distribution if you accept **{int(row['recommended_extra'])}** extra bookings. "
-                        f"The red line indicates the minimum cancellations needed ({min_needed}) to avoid overbooking incidents. "
-                        f"The area under the orange curve to the right of this line represents your safety buffer."
+                # Individual probability pills with color coding
+                st.caption("Individual cancel probabilities (Blue=Current, Orange=Extra):")
+                pills_rec = []
+                for i, p in enumerate(rec_probs):
+                    if i < len(cancel_probs):
+                        # Current booking - Blue
+                        bg = "#e0e7ff"
+                        color = "#4338ca"
+                        border = "#c7d2fe"
+                    else:
+                        # Extra booking - Orange
+                        bg = "#ffedd5"
+                        color = "#9a3412"
+                        border = "#fed7aa"
+
+                    pills_rec.append(
+                        f'<span style="background-color: {bg}; color: {color}; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid {border};">{int(p*100)}</span>'
                     )
+
+                st.markdown("".join(pills_rec), unsafe_allow_html=True)
+
+                # Safety buffer info when at max
+                if n_rec == n_rec_max and min_needed > 0:
+                    prob_safe = np.sum(pmf_rec[x_rec >= min_needed])
+                    st.markdown(f"**Safety buffer:** {prob_safe*100:.1f}% chance of ≥{min_needed} cancellations")
 
 
 # ==================================================================
-# TAB 2 — Alex CODE (single booking prediction)
+# TAB 2 — Single Booking Prediction
 # ==================================================================
 
 # Additional URL constants used only by tab 2
