@@ -148,9 +148,21 @@ with tab1:
         available_dates = sorted(recs["arrival_date"].dt.date.unique())
         selected_date = st.sidebar.selectbox("Select date", available_dates)
 
-        available_rooms = sorted(recs["assigned_room_type"].unique())
-        selected_room = st.sidebar.selectbox("Select room type", available_rooms)
+available_hotels = sorted(recs["hotel"].unique())
+selected_hotel = st.sidebar.selectbox("Select hotel", available_hotels)
 
+available_dates = sorted(
+    recs[recs["hotel"] == selected_hotel]["arrival_date"].dt.date.unique()
+)
+selected_date = st.sidebar.selectbox("Select date", available_dates)
+
+available_rooms = sorted(
+    recs[
+        (recs["hotel"] == selected_hotel)
+        & (recs["arrival_date"].dt.date == selected_date)
+    ]["assigned_room_type"].unique()
+)
+selected_room = st.sidebar.selectbox("Select room type", available_rooms)
 
         # ------------------------------------------------------------------
         # Sidebar — model & evaluation metrics
@@ -169,6 +181,14 @@ with tab1:
             f"Model AUC = {metrics.get('auc', '—')}"
         )
 
+# ------------------------------------------------------------------
+# Filter recommendations for selected date + room type
+# ------------------------------------------------------------------
+filtered = recs[
+    (recs["hotel"] == selected_hotel)
+    & (recs["arrival_date"].dt.date == selected_date)
+    & (recs["assigned_room_type"] == selected_room)
+]
 
         # ------------------------------------------------------------------
         # Filter recommendations for selected date + room type
@@ -211,58 +231,40 @@ with tab1:
                 f"{row['relocation_probability'] * 100:.2f}%",
             )
 
-            st.divider()
+    # ------------------------------------------------------------------
+    # SHAP Explainability + Detailed table — two-column layout
+    # ------------------------------------------------------------------
+    left_col, right_col = st.columns([3, 2])
 
-            # ------------------------------------------------------------------
-            # SHAP Explainability + Detailed table — two-column layout
-            # ------------------------------------------------------------------
-            left_col, right_col = st.columns([3, 2])
+    # --- Left: Detailed table ---
+    with left_col:
+        st.subheader("Detailed View")
 
-            # --- Left: Detailed table ---
-            with left_col:
-                st.subheader("Detailed View")
+        display_cols = [
+            "arrival_date",
+            "hotel",
+            "assigned_room_type",
+            "capacity",
+            "total_bookings",
+            "expected_show_ups",
+            "expected_cancellations",
+            "recommended_extra",
+            "net_benefit",
+            "relocation_probability",
+        ]
 
-                display_cols = [
-                    "arrival_date",
-                    "assigned_room_type",
-                    "capacity",
-                    "total_bookings",
-                    "expected_show_ups",
-                    "expected_cancellations",
-                    "recommended_extra",
-                    "net_benefit",
-                    "relocation_probability",
-                ]
-
-                nice_df = filtered[display_cols].rename(columns={
-                    "arrival_date": "Date",
-                    "assigned_room_type": "Room",
-                    "capacity": "Capacity",
-                    "total_bookings": "Bookings",
-                    "expected_show_ups": "Expected Show-ups",
-                    "expected_cancellations": "Expected Cancels",
-                    "recommended_extra": "Recommended Extra",
-                    "net_benefit": "Net €",
-                    "relocation_probability": "Relocation Risk",
-                })
-
-                st.dataframe(
-                    nice_df.style.format({
-                        "Expected Show-ups": "{:.1f}",
-                        "Expected Cancels": "{:.1f}",
-                        "Net €": "€{:.2f}",
-                        "Relocation Risk": "{:.2%}",
-                    }),
-                    use_container_width=True,
-                )
-
-            # --- Right: SHAP chart ---
-            with right_col:
-                st.subheader("SHAP — Top Risk Factors")
-                st.caption(
-                    f"Why bookings on **{selected_date}** for room type **{selected_room}** "
-                    f"are likely to cancel"
-                )
+        nice_df = filtered[display_cols].rename(columns={
+            "arrival_date": "Date",
+            "hotel": "Hotel",
+            "assigned_room_type": "Room",
+            "capacity": "Capacity",
+            "total_bookings": "Bookings",
+            "expected_show_ups": "Expected Show-ups",
+            "expected_cancellations": "Expected Cancels",
+            "recommended_extra": "Recommended Extra",
+            "net_benefit": "Net €",
+            "relocation_probability": "Relocation Risk",
+        })
 
                 # Cache key includes both date and room type
                 selected_date_str = str(selected_date)
@@ -367,18 +369,23 @@ def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
     return {"error": "Unexpected error during API call."}
 
 
-with tab2:
-    st.subheader("Single Booking Prediction")
-    st.markdown(
-        "Pick a random booking from the test set to see the model's "
-        "cancellation prediction and the SHAP values explaining it."
-    )
+        # Cache key includes both date and room type
+        selected_date_str = str(selected_date)
+        cache_key = f"shap_{selected_hotel}_{selected_date_str}_{selected_room}"
 
-    if st.button("🎲 Pick Random Booking", type="primary"):
-        with st.spinner("Fetching a random booking …"):
-            booking_result = api_get(RANDOM_BOOKING_URL, {}, timeout=30, max_retries=2)
-        if "error" in booking_result:
-            st.error(booking_result["error"])
+        if cache_key not in st.session_state:
+            with st.spinner("Loading SHAP explanations …"):
+                shap_result = api_get(
+                    EXPLAIN_GLOBAL_URL,
+                    {
+                        "selected_date": selected_date_str,
+                        "room_type": selected_room,
+                        "hotel": selected_hotel,
+                    },
+                    timeout=60,
+                    max_retries=2,
+                )
+            st.session_state[cache_key] = shap_result
         else:
             with st.spinner("Running prediction and SHAP explanation …"):
                 explain_result = api_post(EXPLAIN_LOCAL_URL, booking_result["booking"])
