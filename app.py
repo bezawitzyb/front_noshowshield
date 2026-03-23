@@ -134,10 +134,20 @@ model_info = results["model_info"]
 # ------------------------------------------------------------------
 st.sidebar.header("Filters")
 
-available_dates = sorted(recs["arrival_date"].dt.date.unique())
+available_hotels = sorted(recs["hotel"].unique())
+selected_hotel = st.sidebar.selectbox("Select hotel", available_hotels)
+
+available_dates = sorted(
+    recs[recs["hotel"] == selected_hotel]["arrival_date"].dt.date.unique()
+)
 selected_date = st.sidebar.selectbox("Select date", available_dates)
 
-available_rooms = sorted(recs["assigned_room_type"].unique())
+available_rooms = sorted(
+    recs[
+        (recs["hotel"] == selected_hotel)
+        & (recs["arrival_date"].dt.date == selected_date)
+    ]["assigned_room_type"].unique()
+)
 selected_room = st.sidebar.selectbox("Select room type", available_rooms)
 
 
@@ -163,7 +173,8 @@ st.caption(
 # Filter recommendations for selected date + room type
 # ------------------------------------------------------------------
 filtered = recs[
-    (recs["arrival_date"].dt.date == selected_date)
+    (recs["hotel"] == selected_hotel)
+    & (recs["arrival_date"].dt.date == selected_date)
     & (recs["assigned_room_type"] == selected_room)
 ]
 
@@ -213,6 +224,7 @@ else:
 
         display_cols = [
             "arrival_date",
+            "hotel",
             "assigned_room_type",
             "capacity",
             "total_bookings",
@@ -225,6 +237,7 @@ else:
 
         nice_df = filtered[display_cols].rename(columns={
             "arrival_date": "Date",
+            "hotel": "Hotel",
             "assigned_room_type": "Room",
             "capacity": "Capacity",
             "total_bookings": "Bookings",
@@ -255,7 +268,7 @@ else:
 
         # Cache key includes both date and room type
         selected_date_str = str(selected_date)
-        cache_key = f"shap_{selected_date_str}_{selected_room}"
+        cache_key = f"shap_{selected_hotel}_{selected_date_str}_{selected_room}"
 
         if cache_key not in st.session_state:
             with st.spinner("Loading SHAP explanations …"):
@@ -264,6 +277,7 @@ else:
                     {
                         "selected_date": selected_date_str,
                         "room_type": selected_room,
+                        "hotel": selected_hotel,
                     },
                     timeout=60,
                     max_retries=2,
