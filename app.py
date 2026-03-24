@@ -1,6 +1,6 @@
 """
-NoShowShield — Streamlit dashboard for overbooking recommendations
-Connects to the live FastAPI on Google Cloud Run.
+NoShowShield — Modern Hotel Revenue Protection Dashboard
+Redesigned with focus on visual hierarchy, progressive disclosure, and UX best practices.
 
 Run with:
     streamlit run app.py
@@ -11,45 +11,250 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-# ------------------------------------------------------------------
-# API configuration
-# ------------------------------------------------------------------
+# ==================================================================
+# PAGE CONFIGURATION & DESIGN SYSTEM
+# ==================================================================
+st.set_page_config(
+    page_title="NoShowShield | Revenue Protection",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for modern design system
+st.markdown("""
+<style>
+    /* Typography & Base Styles */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Header Styling */
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 16px;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    }
+
+    .main-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+
+    .main-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0.5rem 0 0 0;
+        font-weight: 400;
+    }
+
+    /* Metric Cards */
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.2;
+    }
+
+    .metric-delta {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .warning { color: #f59e0b; }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.875rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        gap: 0.375rem;
+    }
+
+    .status-optimal {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    /* Section Headers */
+    .section-header {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin: 2rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Sidebar Styling */
+    .sidebar-section {
+        background: #f9fafb;
+        padding: 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    /* Chart Containers */
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+    }
+
+    /* Data Tables */
+    .styled-table {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    /* Info Cards */
+    .info-card {
+        background: #f8fafc;
+        border-left: 4px solid #3b82f6;
+        padding: 1rem 1.25rem;
+        border-radius: 0 8px 8px 0;
+        margin: 1rem 0;
+    }
+
+    /* Risk Indicators */
+    .risk-low { color: #10b981; }
+    .risk-medium { color: #f59e0b; }
+    .risk-high { color: #ef4444; }
+
+    /* Button Styling Override */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Slider Customization */
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    }
+
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 12px 24px;
+        font-weight: 500;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    /* Tooltip Styling */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Loading Animation */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .loading-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ==================================================================
+# API CONFIGURATION
+# ==================================================================
 if 'API_URI' in os.environ:
     BASE_URI = st.secrets[os.environ.get('API_URI')]
 else:
-    BASE_URI = st.secrets['cloud_api_uri']
+    BASE_URI = st.secrets.get('cloud_api_uri', 'http://localhost:8000')
+
 BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
 
 OPTIMISE_URL = BASE_URI + 'optimise'
 EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
 TOP_CANCELLATIONS_URL = BASE_URI + 'top-cancellations'
 GROUP_PROBS_URL = BASE_URI + 'group-probs'
+TOP_BOOKINGS_URL = BASE_URI + 'top-bookings'
+EXPLAIN_LOCAL_URL = BASE_URI + 'explain/local'
 
-
-# ------------------------------------------------------------------
-# page config
-# ------------------------------------------------------------------
-st.set_page_config(page_title="NoShowShield", page_icon="🛡️", layout="wide")
-st.title("🛡️ NoShowShield")
-st.markdown("**AI-Powered Hotel Revenue Protection Against Cancellations**")
-st.markdown(
-    "NoShowShield uses machine learning to predict booking cancellations "
-    "and recommend optimal overbooking levels: maximising hotel revenue "
-    "while keeping guest relocation risk below a configurable threshold. "
-    "Select a date and room type to see actionable recommendations backed "
-    "by SHAP explainability."
-)
-
-
-# ------------------------------------------------------------------
-# Inline Poisson-Binomial PMF (avoids API round-trip per slider tick)
-# ------------------------------------------------------------------
-import numpy as np
-
-
+# ==================================================================
+# UTILITY FUNCTIONS
+# ==================================================================
 def poisson_binomial_pmf(probs):
     """Exact Poisson-Binomial PMF via dynamic programming."""
     probs = np.asarray(probs, dtype=np.float64)
@@ -65,39 +270,8 @@ def poisson_binomial_pmf(probs):
         pmf = new
     return pmf
 
-
-# ------------------------------------------------------------------
-# Request user input (sidebar)
-# ------------------------------------------------------------------
-st.sidebar.header("Optimization Settings")
-
-relocation_cost = st.sidebar.number_input(
-    "Relocation cost (€)",
-    min_value=0.0,
-    max_value=1000.0,
-    value=300.0,
-    step=50.0,
-    help="Cost of relocating a guest to another hotel when overbooked.",
-)
-
-max_risk = st.sidebar.slider(
-    "Max relocation risk",
-    min_value=0.0,
-    max_value=0.10,
-    value=0.02,
-    step=0.01,
-    help="Maximum acceptable probability of having to relocate a guest.",
-)
-
-
-# ------------------------------------------------------------------
-# API helpers
-# ------------------------------------------------------------------
 def api_get(url: str, params: dict, timeout: int = 180, max_retries: int = 3):
-    """
-    GET request with retries for Cloud Run cold starts.
-    Returns the JSON response or a dict with an 'error' key.
-    """
+    """GET request with retries for Cloud Run cold starts."""
     for attempt in range(1, max_retries + 1):
         try:
             response = requests.get(url, params=params, timeout=timeout)
@@ -116,204 +290,335 @@ def api_get(url: str, params: dict, timeout: int = 180, max_retries: int = 3):
             return {"error": "Could not connect to the API. Check that the Cloud Run service is running."}
     return {"error": "Unexpected error during API call."}
 
+def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
+    """POST request with retries."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(url, json=payload, timeout=timeout)
+            if response.status_code != 200:
+                return {"error": f"API returned status {response.status_code}: {response.text}"}
+            return response.json()
+        except requests.exceptions.Timeout:
+            if attempt < max_retries:
+                time.sleep(2)
+                continue
+            return {"error": "API request timed out."}
+        except requests.exceptions.ConnectionError:
+            if attempt < max_retries:
+                time.sleep(2)
+                continue
+            return {"error": "Could not connect to the API."}
+    return {"error": "Unexpected error during API call."}
 
-# ------------------------------------------------------------------
-# Load optimisation data — triggered by button
-# ------------------------------------------------------------------
-if st.sidebar.button("Get Recommendations", type="primary", use_container_width=True):
-    with st.spinner("Fetching predictions from API … (first load may take up to 2 min while the API wakes up)"):
-        results = api_get(OPTIMISE_URL, {
-            "relocation_cost": relocation_cost,
-            "max_risk": max_risk,
-        })
-    if "error" in results:
-        st.error(results["error"])
+def get_risk_color(prob):
+    """Return color based on risk probability."""
+    if prob < 0.02:
+        return "#10b981"  # Green
+    elif prob < 0.05:
+        return "#f59e0b"  # Yellow
     else:
-        st.session_state["results"] = results
-        st.session_state["relocation_cost"] = relocation_cost
-        st.session_state["max_risk"] = max_risk
+        return "#ef4444"  # Red
 
-
-# ==================================================================
-# TABS
-# ==================================================================
-tab1, tab2 = st.tabs(["Overbooking Recommendations", "Single Booking Prediction"])
-
-
-# ==================================================================
-# TAB 1 — Bezas CODE
-# Note: st.stop() replaced with if/else so tab 2 can render.
-# Only other change: nlargest(10) → nlargest(5) per product request.
-# ==================================================================
-with tab1:
-    # ------------------------------------------------------------------
-    # Display results (only if loaded)
-    # ------------------------------------------------------------------
-    if "results" not in st.session_state:
-        st.info("Adjust settings in the sidebar and click **Get Recommendations** to start.")
+def get_risk_status(prob):
+    """Return status text based on risk probability."""
+    if prob < 0.02:
+        return "Low Risk", "status-optimal"
+    elif prob < 0.05:
+        return "Moderate Risk", "status-warning"
     else:
-        results = st.session_state["results"]
+        return "High Risk", "status-danger"
 
-        # ------------------------------------------------------------------
-        # Parse API response
-        # ------------------------------------------------------------------
-        recs = pd.DataFrame(results["recommendations"])
+# ==================================================================
+# SIDEBAR - SETTINGS PANEL
+# ==================================================================
+with st.sidebar:
+    # Logo/Brand Area
+    st.markdown("""
+        <div style="text-align: center; padding: 1rem 0; margin-bottom: 1rem;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🛡️</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #1f2937;">NoShowShield</div>
+            <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">Revenue Protection System</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Optimization Settings Section
+    st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+    st.markdown("### ⚙️ Optimization Settings")
+
+    relocation_cost = st.number_input(
+        "Relocation Cost (€)",
+        min_value=0.0,
+        max_value=1000.0,
+        value=300.0,
+        step=50.0,
+        help="Cost incurred when relocating an overbooked guest to another hotel.",
+        format="%.0f"
+    )
+
+    max_risk = st.slider(
+        "Risk Tolerance",
+        min_value=0.0,
+        max_value=0.10,
+        value=0.02,
+        step=0.005,
+        format="%.1%%",
+        help="Maximum acceptable probability of guest relocation."
+    )
+
+    # Risk indicator
+    risk_color = get_risk_color(max_risk)
+    st.markdown(f"""
+        <div style="margin-top: 0.5rem; padding: 0.75rem; background: {risk_color}15; border-radius: 8px; border-left: 4px solid {risk_color};">
+            <div style="font-size: 0.875rem; color: {risk_color}; font-weight: 600;">
+                Current Threshold: {max_risk:.1%}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Action Button
+    if st.button("🚀 Get Recommendations", type="primary", use_container_width=True):
+        with st.spinner("Analyzing booking patterns..."):
+            results = api_get(OPTIMISE_URL, {
+                "relocation_cost": relocation_cost,
+                "max_risk": max_risk,
+            })
+            if "error" in results:
+                st.error(results["error"])
+            else:
+                st.session_state["results"] = results
+                st.session_state["relocation_cost"] = relocation_cost
+                st.session_state["max_risk"] = max_risk
+                st.success("Analysis complete!")
+                time.sleep(0.5)
+                st.rerun()
+
+    st.markdown("---")
+
+    # Filters Section (only show if results exist)
+    if "results" in st.session_state:
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### 🔍 Filters")
+
+        recs = pd.DataFrame(st.session_state["results"]["recommendations"])
         recs["arrival_date"] = pd.to_datetime(recs["arrival_date"])
 
-        metrics = results["metrics"]
-        model_info = results["model_info"]
-
-
-        # ------------------------------------------------------------------
-        # Sidebar — filters
-        # ------------------------------------------------------------------
-        st.sidebar.header("Filters")
-
         available_hotels = sorted(recs["hotel"].unique())
-        selected_hotel = st.sidebar.selectbox("Select hotel", available_hotels)
+        selected_hotel = st.selectbox("Hotel", available_hotels, key="hotel_filter")
 
         available_dates = sorted(
             recs[recs["hotel"] == selected_hotel]["arrival_date"].dt.date.unique()
         )
-        selected_date = st.sidebar.selectbox("Select date", available_dates)
+        selected_date = st.selectbox("Arrival Date", available_dates, key="date_filter")
 
         available_rooms = sorted(
             recs[
-                (recs["hotel"] == selected_hotel)
-                & (recs["arrival_date"].dt.date == selected_date)
+                (recs["hotel"] == selected_hotel) &
+                (recs["arrival_date"].dt.date == selected_date)
             ]["assigned_room_type"].unique()
         )
-        selected_room = st.sidebar.selectbox("Select room type", available_rooms)
+        selected_room = st.selectbox("Room Type", available_rooms, key="room_filter")
 
+        st.session_state["selected_hotel"] = selected_hotel
+        st.session_state["selected_date"] = selected_date
+        st.session_state["selected_room"] = selected_room
 
-        # ------------------------------------------------------------------
-        # Sidebar — model & evaluation metrics
-        # ------------------------------------------------------------------
-        st.sidebar.header("Model Info")
-        st.sidebar.caption(model_info.get("model_type", "XGBoost"))
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        metrics_df = pd.DataFrame(
-            {"Metric": list(metrics.keys()), "Score": list(metrics.values())}
-        ).set_index("Metric")
-        st.sidebar.table(metrics_df)
+        # Model Performance Section
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        st.markdown("### 📊 Model Performance")
 
-        st.caption(
-            f"Relocation cost = €{st.session_state.get('relocation_cost', relocation_cost):.0f}  ·  "
-            f"Max risk = {st.session_state.get('max_risk', max_risk) * 100:.1f}%  ·  "
-            f"Model AUC = {metrics.get('auc', '—')}"
-        )
+        metrics = st.session_state["results"]["metrics"]
+        model_info = st.session_state["results"]["model_info"]
 
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("AUC", f"{metrics.get('auc', 0):.3f}")
+        with col2:
+            st.metric("Accuracy", f"{metrics.get('accuracy', 0):.1%}")
 
-        # ------------------------------------------------------------------
-        # Filter recommendations for selected hotel + date + room type
-        # ------------------------------------------------------------------
-        filtered = recs[
-            (recs["hotel"] == selected_hotel)
-            & (recs["arrival_date"].dt.date == selected_date)
-            & (recs["assigned_room_type"] == selected_room)
-        ]
+        st.caption(f"Model: {model_info.get('model_type', 'XGBoost')}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
+# ==================================================================
+# MAIN HEADER
+# ==================================================================
+st.markdown("""
+    <div class="main-header">
+        <h1>🛡️ NoShowShield</h1>
+        <p>AI-Powered Revenue Protection — Optimize overbooking while minimizing relocation risk</p>
+    </div>
+""", unsafe_allow_html=True)
 
-        # ------------------------------------------------------------------
-        # Display the prediction
-        # ------------------------------------------------------------------
-        st.subheader("Recommendation")
+# ==================================================================
+# TABS
+# ==================================================================
+tab1, tab2 = st.tabs(["📈 Revenue Optimization", "🔍 Single Booking Analysis"])
 
-        if filtered.empty:
-            st.warning("No data available for this selection.")
+# ==================================================================
+# TAB 1: REVENUE OPTIMIZATION
+# ==================================================================
+with tab1:
+    if "results" not in st.session_state:
+        # Empty State
+        st.markdown("""
+            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 16px; border: 2px dashed #e5e7eb;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+                <h3 style="color: #374151; margin-bottom: 0.5rem;">Ready to Analyze</h3>
+                <p style="color: #6b7280; max-width: 400px; margin: 0 auto;">
+                    Configure your settings in the sidebar and click <strong>Get Recommendations</strong> to start optimizing your revenue.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        results = st.session_state["results"]
+        recs = pd.DataFrame(results["recommendations"])
+        recs["arrival_date"] = pd.to_datetime(recs["arrival_date"])
+
+        # Get current selection
+        selected_hotel = st.session_state.get("selected_hotel")
+        selected_date = st.session_state.get("selected_date")
+        selected_room = st.session_state.get("selected_room")
+
+        if not all([selected_hotel, selected_date, selected_room]):
+            st.warning("Please select filters from the sidebar to view recommendations.")
         else:
-            row = filtered.iloc[0]
+            # Filter data
+            filtered = recs[
+                (recs["hotel"] == selected_hotel) &
+                (recs["arrival_date"].dt.date == selected_date) &
+                (recs["assigned_room_type"] == selected_room)
+            ]
 
-            # --- Top metrics row ---
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Capacity", int(row["capacity"]))
-            col2.metric("Current Bookings", int(row["total_bookings"]))
-            col3.metric("Expected Show-ups", round(row["expected_show_ups"], 1))
+            if filtered.empty:
+                st.warning("No data available for the selected criteria.")
+            else:
+                row = filtered.iloc[0]
 
-            st.divider()
+                # Status Badge
+                risk_status, risk_class = get_risk_status(row["relocation_probability"])
 
-            col4, col5, col6 = st.columns(3)
-            col4.metric(
-                "Recommended Extra Bookings",
-                int(row["recommended_extra"]),
-            )
-            col5.metric(
-                "Net Benefit (€)",
-                f"€{row['net_benefit']:.2f}",
-            )
-            col6.metric(
-                "Relocation Risk",
-                f"{row['relocation_probability'] * 100:.2f}%",
-            )
+                # KEY METRICS ROW
+                st.markdown('<div class="section-header">📊 Key Metrics</div>', unsafe_allow_html=True)
 
-            st.divider()
+                cols = st.columns(4)
 
-            # ------------------------------------------------------------------
-            # Show-up Distribution (Poisson-Binomial)
-            # ------------------------------------------------------------------
-            st.subheader("Show-up Distribution")
-            st.caption(
-                f"Poisson-Binomial distribution of expected show-ups for "
-                f"**{selected_room}** on **{selected_date}**. "
-                f"Slide to see how adding bookings shifts the distribution."
-            )
+                metrics_data = [
+                    ("Capacity", f"{int(row['capacity'])}", "rooms", "neutral"),
+                    ("Current Bookings", f"{int(row['total_bookings'])}", "booked", "neutral"),
+                    ("Expected Show-ups", f"{row['expected_show_ups']:.1f}", "guests", "neutral"),
+                    ("Recommended Overbook", f"+{int(row['recommended_extra'])}", "additional", "positive" if row['recommended_extra'] > 0 else "neutral")
+                ]
 
-            recommended_total = int(row["recommended_total"])
-            n_current = int(row["total_bookings"])
-            capacity = int(row["capacity"])
+                for col, (label, value, subtext, sentiment) in zip(cols, metrics_data):
+                    with col:
+                        st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{label}</div>
+                                <div class="metric-value">{value}</div>
+                                <div class="metric-delta {'positive' if sentiment == 'positive' else ''}">{subtext}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
 
-            # Fetch individual cancel probs (fast fail + fallback to mean)
-            probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
+                # FINANCIAL & RISK ROW
+                st.markdown('<div class="section-header">💰 Financial Impact & Risk Assessment</div>', unsafe_allow_html=True)
 
-            if probs_cache_key not in st.session_state:
-                try:
-                    resp = requests.get(
-                        GROUP_PROBS_URL,
-                        params={
-                            "hotel": selected_hotel,
-                            "arrival_date": str(selected_date),
-                            "room_type": selected_room,
-                        },
-                        timeout=3,
-                    )
-                    if resp.status_code == 200:
-                        gp_result = resp.json()
-                        if "cancel_probs" in gp_result:
-                            st.session_state[probs_cache_key] = gp_result
-                    else:
+                fin_cols = st.columns(3)
+
+                with fin_cols[0]:
+                    net_benefit = row['net_benefit']
+                    benefit_color = "positive" if net_benefit > 0 else "negative"
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">Net Revenue Impact</div>
+                            <div class="metric-value {benefit_color}">€{net_benefit:,.2f}</div>
+                            <div class="metric-delta">per day</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                with fin_cols[1]:
+                    reloc_prob = row['relocation_probability']
+                    risk_color_class = "positive" if reloc_prob < 0.02 else "warning" if reloc_prob < 0.05 else "negative"
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">Relocation Risk</div>
+                            <div class="metric-value {risk_color_class}">{reloc_prob:.1%}</div>
+                            <div class="metric-delta">probability</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                with fin_cols[2]:
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">Risk Status</div>
+                            <div style="margin-top: 0.5rem;">
+                                <span class="status-badge {risk_class}">{risk_status}</span>
+                            </div>
+                            <div class="metric-delta">threshold: {max_risk:.1%}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # SHOW-UP DISTRIBUTION CHART
+                st.markdown('<div class="section-header">📉 Show-up Probability Distribution</div>', unsafe_allow_html=True)
+
+                # Fetch probabilities
+                probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
+
+                if probs_cache_key not in st.session_state:
+                    try:
+                        resp = requests.get(
+                            GROUP_PROBS_URL,
+                            params={
+                                "hotel": selected_hotel,
+                                "arrival_date": str(selected_date),
+                                "room_type": selected_room,
+                            },
+                            timeout=3,
+                        )
+                        if resp.status_code == 200:
+                            gp_result = resp.json()
+                            if "cancel_probs" in gp_result:
+                                st.session_state[probs_cache_key] = gp_result
+                        else:
+                            gp_result = {}
+                    except Exception:
                         gp_result = {}
-                except Exception:
-                    gp_result = {}
-            else:
-                gp_result = st.session_state[probs_cache_key]
+                else:
+                    gp_result = st.session_state[probs_cache_key]
 
-            # Resolve: exact per-booking probs or mean fallback
-            if "cancel_probs" in gp_result:
-                cancel_probs_arr = np.array(gp_result["cancel_probs"], dtype=np.float64)
-            else:
-                mean_cp = row.get("cancel_prob_mean", row["expected_cancellations"] / row["total_bookings"])
-                cancel_probs_arr = np.full(n_current, float(mean_cp))
+                # Resolve probabilities
+                n_current = int(row["total_bookings"])
+                capacity = int(row["capacity"])
+                recommended_total = int(row["recommended_total"])
 
-            n_simulate = st.slider(
-                "Total bookings to simulate",
-                min_value=0,
-                max_value=recommended_total,
-                value=recommended_total,
-                help=(
-                    "Drag to see how the show-up distribution changes "
-                    "as bookings are added. Current bookings are included "
-                    "first; extra bookings use the group mean cancel rate."
-                ),
-            )
+                if "cancel_probs" in gp_result:
+                    cancel_probs_arr = np.array(gp_result["cancel_probs"], dtype=np.float64)
+                else:
+                    mean_cp = row.get("cancel_prob_mean", row["expected_cancellations"] / row["total_bookings"])
+                    cancel_probs_arr = np.full(n_current, float(mean_cp))
 
-            # Compute show-up PMF locally (instant)
-            if n_simulate == 0:
-                show_pmf = np.array([1.0])
-                mean_su = 0.0
-                std_su = 0.0
-                reloc_prob = 0.0
-                indiv_show = np.array([])
-            else:
+                # Interactive Slider
+                st.markdown("""
+                    <div class="info-card">
+                        <strong>💡 Tip:</strong> Adjust the slider to simulate different booking levels and see how
+                        the relocation risk changes. The green zone represents safe capacity levels.
+                    </div>
+                """, unsafe_allow_html=True)
+
+                n_simulate = st.slider(
+                    "Simulate Total Bookings",
+                    min_value=0,
+                    max_value=recommended_total + 5,
+                    value=recommended_total,
+                    help="Drag to see risk at different booking levels"
+                )
+
+                # Calculate distribution
                 if n_simulate <= n_current:
                     sel_cancel = cancel_probs_arr[:n_simulate]
                 else:
@@ -334,388 +639,355 @@ with tab1:
                 else:
                     reloc_prob = 0.0
 
-            # Stats row
-            dcol1, dcol2, dcol3, dcol4 = st.columns(4)
-            dcol1.metric("Bookings Simulated", n_simulate)
-            dcol2.metric("Expected Show-ups", f"{mean_su:.1f}")
-            dcol3.metric("Std Deviation", f"{std_su:.2f}")
-            dcol4.metric("Relocation Risk", f"{reloc_prob * 100:.2f}%")
+                # Distribution Chart
+                x_vals = list(range(len(show_pmf)))
 
-            # Plotly PMF chart
-            import plotly.graph_objects as go
+                # Color coding: blue (current), green (safe), red (over capacity)
+                colors = []
+                for k in x_vals:
+                    if k <= n_current:
+                        colors.append("#3b82f6")  # Blue - existing
+                    elif k <= capacity:
+                        colors.append("#10b981")  # Green - safe overbooking
+                    else:
+                        colors.append("#ef4444")  # Red - risk zone
 
-            x_vals = list(range(len(show_pmf)))
+                fig_dist = go.Figure()
 
-            fig_dist = go.Figure()
+                fig_dist.add_trace(go.Bar(
+                    x=x_vals,
+                    y=show_pmf.tolist(),
+                    marker_color=colors,
+                    name="Probability",
+                    hovertemplate="Show-ups: %{x}<br>Probability: %{y:.4f}<extra></extra>",
+                ))
 
-            # blue ≤ current, green current..capacity, red > capacity
-            bar_colors = [
-                "#3498db" if k <= n_current
-                else "#2ecc71" if k <= capacity
-                else "#e74c3c"
-                for k in x_vals
-            ]
-
-            fig_dist.add_trace(go.Bar(
-                x=x_vals,
-                y=show_pmf.tolist(),
-                marker_color=bar_colors,
-                name="P(show-ups = k)",
-                hovertemplate="Show-ups: %{x}<br>Probability: %{y:.4f}<extra></extra>",
-            ))
-
-            # capacity vertical line
-            fig_dist.add_vline(
-                x=capacity + 0.5,
-                line_dash="dash",
-                line_color="#e74c3c",
-                line_width=2,
-                annotation_text=f"Capacity = {capacity}",
-                annotation_position="top left",
-                annotation_font_color="#e74c3c",
-                annotation_font_size=12,
-            )
-
-            fig_dist.update_layout(
-                xaxis_title="Number of Show-ups",
-                yaxis_title="Probability",
-                height=400,
-                margin=dict(l=0, r=20, t=30, b=0),
-                showlegend=False,
-                xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
-                bargap=0.05,
-            )
-
-            st.plotly_chart(fig_dist, use_container_width=True)
-
-            # Individual show-up probability badges
-            if n_simulate > 0:
-                show_pcts = (indiv_show * 100).astype(int).tolist()
-
-                display_limit = 15
-                badges = ""
-                for i, pct in enumerate(show_pcts[:display_limit]):
-                    color = "#3498db" if i < n_current else "#2ecc71"
-                    badges += (
-                        f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
-                        f'border-radius:12px;background:{color};color:white;'
-                        f'font-size:12px;font-weight:600;">{pct}</span>'
-                    )
-                remaining = len(show_pcts) - display_limit
-                if remaining > 0:
-                    badges += f' <span style="font-size:13px;color:#888;">…+{remaining} more</span>'
-
-                st.markdown(
-                    f"Individual show-up probabilities % "
-                    f"(<span style='color:#3498db'>■</span> Current "
-                    f"<span style='color:#2ecc71'>■</span> Extra)",
-                    unsafe_allow_html=True,
-                )
-                st.markdown(badges, unsafe_allow_html=True)
-
-            st.divider()
-
-            # ------------------------------------------------------------------
-            # SHAP Explainability + Detailed table — two-column layout
-            # ------------------------------------------------------------------
-            left_col, right_col = st.columns([3, 2])
-
-            # --- Left: Top 3 likely cancellations ---
-            with left_col:
-                st.subheader("Top 3 Likely Cancellations")
-                st.caption(
-                    f"Bookings for **{selected_room}** on **{selected_date}** with highest risk"
+                # Capacity line
+                fig_dist.add_vline(
+                    x=capacity + 0.5,
+                    line_dash="dash",
+                    line_color="#ef4444",
+                    line_width=3,
+                    annotation_text=f"Capacity: {capacity}",
+                    annotation_position="top",
+                    annotation_font_size=12,
+                    annotation_font_color="#ef4444"
                 )
 
-                # Fetch top 3 from API
-                top_3_result = api_get(
-                    TOP_CANCELLATIONS_URL,
-                    {
-                        "hotel": selected_hotel,
-                        "arrival_date": str(selected_date),
-                        "room_type": selected_room,
+                # Current bookings line
+                fig_dist.add_vline(
+                    x=n_current + 0.5,
+                    line_dash="dot",
+                    line_color="#3b82f6",
+                    line_width=2,
+                    annotation_text=f"Current: {n_current}",
+                    annotation_position="bottom",
+                    annotation_font_size=11,
+                    annotation_font_color="#3b82f6"
+                )
+
+                fig_dist.update_layout(
+                    title={
+                        'text': f"Distribution of Expected Show-ups (μ={mean_su:.1f}, σ={std_su:.2f})",
+                        'x': 0.5,
+                        'xanchor': 'center',
+                        'font': {'size': 16, 'color': '#374151'}
                     },
-                    timeout=30,
-                    max_retries=2
+                    xaxis_title="Number of Guests Showing Up",
+                    yaxis_title="Probability Density",
+                    height=450,
+                    showlegend=False,
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    xaxis=dict(
+                        showgrid=True,
+                        gridcolor='#f3f4f6',
+                        zeroline=False
+                    ),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridcolor='#f3f4f6',
+                        zeroline=False
+                    ),
+                    bargap=0.1,
+                    margin=dict(l=60, r=40, t=80, b=60)
                 )
 
-                if "error" in top_3_result:
-                    st.warning(f"Could not load top cancellations: {top_3_result['error']}")
-                else:
-                    top_3_data = top_3_result.get("top_3", [])
-                    if not top_3_data:
-                        st.info("No booking data available.")
-                    else:
-                        top_3_df = pd.DataFrame(top_3_data)
+                st.plotly_chart(fig_dist, use_container_width=True)
 
-                        # Formatting for display
-                        top_3_df["cancel_prob"] = (top_3_df["cancel_prob"] * 100).map("{:.1f}%".format)
-                        top_3_df["adr"] = top_3_df["adr"].map("€{:.2f}".format)
+                # Stats row below chart
+                stat_cols = st.columns(4)
+                stat_cols[0].metric("Simulated Bookings", n_simulate)
+                stat_cols[1].metric("Expected Show-ups", f"{mean_su:.1f}")
+                stat_cols[2].metric("Std Deviation", f"{std_su:.2f}")
+                stat_cols[3].metric("Relocation Risk", f"{reloc_prob:.1%}",
+                                   delta=f"{(reloc_prob - max_risk):.1%} vs threshold",
+                                   delta_color="inverse")
 
-                        # Rename columns for presentation
-                        col_mapping = {
-                            "lead_time": "Lead Time (days)",
-                            "adr": "ADR",
-                            "market_segment": "Market Segment",
-                            "deposit_type": "Deposit",
-                            "customer_type": "Customer",
-                            "cancel_prob": "Cancel Risk"
-                        }
-                        top_3_df = top_3_df.rename(columns=col_mapping)
+                # INSIGHTS SECTION
+                st.markdown('<div class="section-header">🔍 Insights & Risk Factors</div>', unsafe_allow_html=True)
 
-                        # Reorder to match mapping order
-                        display_cols = [v for k, v in col_mapping.items() if v in top_3_df.columns]
-                        st.table(top_3_df[display_cols])
+                insight_cols = st.columns([2, 3])
 
-            # --- Right: SHAP chart ---
-            with right_col:
-                st.subheader("SHAP — Top Risk Factors")
-                st.caption(
-                    f"Why bookings on **{selected_date}** for room type **{selected_room}** "
-                    f"are likely to cancel"
-                )
+                # Left: Top Cancellations Table
+                with insight_cols[0]:
+                    st.markdown("#### Top Risk Bookings")
+                    st.caption(f"Highest cancellation probability for {selected_room} on {selected_date}")
 
-                # Cache key includes hotel, date and room type
-                selected_date_str = str(selected_date)
-                cache_key = f"shap_{selected_hotel}_{selected_date_str}_{selected_room}"
+                    top_3_result = api_get(
+                        TOP_CANCELLATIONS_URL,
+                        {
+                            "hotel": selected_hotel,
+                            "arrival_date": str(selected_date),
+                            "room_type": selected_room,
+                        },
+                        timeout=30,
+                        max_retries=2
+                    )
 
-                if cache_key not in st.session_state:
-                    with st.spinner("Loading SHAP explanations …"):
-                        shap_result = api_get(
-                            EXPLAIN_GLOBAL_URL,
-                            {
-                                "selected_date": selected_date_str,
-                                "room_type": selected_room,
-                                "hotel": selected_hotel,
-                            },
-                            timeout=60,
-                            max_retries=2,
+                    if "error" not in top_3_result and top_3_result.get("top_3"):
+                        top_3_df = pd.DataFrame(top_3_result["top_3"])
+
+                        # Format for display
+                        display_df = pd.DataFrame({
+                            'Risk': (top_3_df["cancel_prob"] * 100).map("{:.0f}%".format),
+                            'Lead Time': top_3_df["lead_time"].map("{} days".format),
+                            'ADR': top_3_df["adr"].map("€{:.0f}".format),
+                            'Segment': top_3_df["market_segment"]
+                        })
+
+                        st.dataframe(
+                            display_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "Risk": st.column_config.TextColumn("Risk", help="Cancellation probability"),
+                                "Lead Time": st.column_config.TextColumn("Lead Time"),
+                                "ADR": st.column_config.TextColumn("ADR"),
+                                "Segment": st.column_config.TextColumn("Segment")
+                            }
                         )
-                    st.session_state[cache_key] = shap_result
-                else:
-                    shap_result = st.session_state[cache_key]
-
-                if "error" in shap_result:
-                    st.warning(f"Could not load SHAP data: {shap_result['error']}")
-
-                elif shap_result.get("message"):
-                    st.info(shap_result["message"])
-
-                elif shap_result.get("grouped_global_shap"):
-                    shap_df = pd.DataFrame(shap_result["grouped_global_shap"]).copy()
-
-                    shap_df["mean_abs_shap"] = pd.to_numeric(shap_df["mean_abs_shap"], errors="coerce")
-
-                    shap_df["feature"] = (
-                        shap_df["feature_group"]
-                        .astype(str)
-                        .str.replace("cat_ordinal__", "", regex=False)
-                        .str.replace("_", " ", regex=False)
-                        .str.title()
-                    )
-
-                    top_shap = (
-                        shap_df[["feature", "mean_abs_shap"]]
-                        .dropna()
-                        .sort_values("mean_abs_shap", ascending=False)
-                        .head(5)
-                        .reset_index(drop=True)
-                    )
-
-                    if top_shap.empty:
-                        st.info("No SHAP data available for this date and room type.")
                     else:
-                        # reverse so the biggest bar is shown at the top
-                        plot_df = top_shap.iloc[::-1].reset_index(drop=True)
+                        st.info("No high-risk bookings identified for this selection.")
 
-                        fig = go.Figure(
-                            go.Bar(
-                                x=plot_df["mean_abs_shap"].tolist(),
-                                y=plot_df["feature"].tolist(),
-                                orientation="h",
+                # Right: SHAP Explanation
+                with insight_cols[1]:
+                    st.markdown("#### Key Risk Drivers")
+                    st.caption("Features most predictive of cancellation for this segment")
+
+                    cache_key = f"shap_{selected_hotel}_{str(selected_date)}_{selected_room}"
+
+                    if cache_key not in st.session_state:
+                        with st.spinner("Loading feature importance..."):
+                            shap_result = api_get(
+                                EXPLAIN_GLOBAL_URL,
+                                {
+                                    "selected_date": str(selected_date),
+                                    "room_type": selected_room,
+                                    "hotel": selected_hotel,
+                                },
+                                timeout=60,
+                                max_retries=2,
                             )
+                        st.session_state[cache_key] = shap_result
+                    else:
+                        shap_result = st.session_state[cache_key]
+
+                    if "error" not in shap_result and shap_result.get("grouped_global_shap"):
+                        shap_df = pd.DataFrame(shap_result["grouped_global_shap"])
+                        shap_df["mean_abs_shap"] = pd.to_numeric(shap_df["mean_abs_shap"], errors="coerce")
+
+                        # Clean feature names
+                        shap_df["feature"] = (
+                            shap_df["feature_group"]
+                            .astype(str)
+                            .str.replace("cat_ordinal__", "", regex=False)
+                            .str.replace("_", " ", regex=False)
+                            .str.title()
                         )
 
-                        fig.update_layout(
-                            height=520,
-                            margin=dict(l=20, r=20, t=20, b=60),
+                        top_shap = (
+                            shap_df[["feature", "mean_abs_shap"]]
+                            .dropna()
+                            .sort_values("mean_abs_shap", ascending=True)
+                            .tail(5)
+                        )
+
+                        fig_shap = go.Figure(go.Bar(
+                            x=top_shap["mean_abs_shap"].tolist(),
+                            y=top_shap["feature"].tolist(),
+                            orientation="h",
+                            marker_color="#667eea"
+                        ))
+
+                        fig_shap.update_layout(
+                            height=300,
                             showlegend=False,
-                            xaxis_title="Mean |SHAP Value|",
+                            xaxis_title="Impact on Prediction",
                             yaxis_title="",
+                            plot_bgcolor='white',
+                            paper_bgcolor='white',
+                            margin=dict(l=20, r=20, t=20, b=40)
                         )
 
-                        fig.update_yaxes(
-                            type="category",
-                            categoryorder="array",
-                            categoryarray=plot_df["feature"].tolist(),
-                            automargin=True,
-                        )
-
-                        fig.update_xaxes(automargin=True)
-
-                        st.plotly_chart(fig, use_container_width=True)
-
-                else:
-                    st.info("No SHAP data available for this date and room type.")
-
+                        st.plotly_chart(fig_shap, use_container_width=True)
+                    else:
+                        st.info("Feature importance data not available.")
 
 # ==================================================================
-# TAB 2 — Alex CODE (single booking prediction)
+# TAB 2: SINGLE BOOKING ANALYSIS
 # ==================================================================
-
-# Additional URL constants used only by tab 2
-TOP_BOOKINGS_URL  = BASE_URI + 'top-bookings'
-EXPLAIN_LOCAL_URL = BASE_URI + 'explain/local'
-
-
-def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
-    """POST request with retries. Returns JSON or a dict with an 'error' key."""
-    for attempt in range(1, max_retries + 1):
-        try:
-            response = requests.post(url, json=payload, timeout=timeout)
-            if response.status_code != 200:
-                return {"error": f"API returned status {response.status_code}: {response.text}"}
-            return response.json()
-        except requests.exceptions.Timeout:
-            if attempt < max_retries:
-                time.sleep(2)
-                continue
-            return {"error": "API request timed out."}
-        except requests.exceptions.ConnectionError:
-            if attempt < max_retries:
-                time.sleep(2)
-                continue
-            return {"error": "Could not connect to the API."}
-    return {"error": "Unexpected error during API call."}
-
-
 with tab2:
-    st.subheader("Single Booking Prediction")
-    st.markdown(
-        "Select one of the top 3 bookings with the highest predicted cancellation "
-        "risk to see the model's prediction and the SHAP values explaining it."
-    )
+    st.markdown('<div class="section-header">🔍 Individual Booking Risk Assessment</div>', unsafe_allow_html=True)
 
-    # Load top bookings once per session, but only after the main results are ready
-    # (avoids a double API call when the user first clicks "Get Recommendations")
+    st.markdown("""
+        <div class="info-card">
+            <strong>About this tool:</strong> Select a high-risk booking to analyze individual cancellation
+            probability and understand the specific factors driving the risk prediction.
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Load top bookings
     if "top_bookings_list" not in st.session_state and "results" in st.session_state:
-        with st.spinner("Loading top high-risk bookings …"):
+        with st.spinner("Loading high-risk bookings..."):
             top_result = api_get(TOP_BOOKINGS_URL, {}, timeout=60, max_retries=2)
-        if "error" in top_result:
-            st.error(top_result["error"])
-            st.session_state["top_bookings_list"] = []
-        else:
-            st.session_state["top_bookings_list"] = top_result["top_bookings"]
+        if "error" not in top_result:
+            st.session_state["top_bookings_list"] = top_result.get("top_bookings", [])
 
     top_bookings_list = st.session_state.get("top_bookings_list", [])
 
-    placeholder = "Select booking for prediction"
-    dropdown_labels = [placeholder] + [b["label"] for b in top_bookings_list]
-    selected_label = st.selectbox(
-        "Select a high-risk booking",
-        options=dropdown_labels,
-        index=0,
-        disabled=not top_bookings_list,
-    )
-
-    if selected_label != placeholder and top_bookings_list:
-        selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
-
-        # Fetch explanation when selection changes
-        cache_key = f"explain_{selected_entry['rank']}"
-        if cache_key not in st.session_state:
-            with st.spinner("Running prediction and SHAP explanation …"):
-                explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
-            if "error" in explain_result:
-                st.error(explain_result["error"])
-            else:
-                st.session_state[cache_key] = explain_result
-
-        if cache_key in st.session_state:
-            st.session_state["single_booking"] = selected_entry["booking"]
-            st.session_state["single_actual"]  = selected_entry["actual_outcome"]
-            st.session_state["single_explain"] = st.session_state[cache_key]
-
-    if "single_booking" not in st.session_state:
-        st.info("Select a booking above to load its prediction.")
+    if not top_bookings_list:
+        st.info("Load recommendations in Tab 1 to enable single booking analysis.")
     else:
-        booking = st.session_state["single_booking"]
-        actual  = st.session_state["single_actual"]
-        explain = st.session_state["single_explain"]
+        # Booking selector
+        booking_options = {b["label"]: b for b in top_bookings_list}
+        selected_label = st.selectbox(
+            "Select Booking to Analyze",
+            options=["Choose a booking..."] + list(booking_options.keys()),
+            index=0
+        )
 
-        prob       = explain["cancellation_probability"]
-        prediction = explain.get("prediction", int(prob >= 0.5))
+        if selected_label != "Choose a booking...":
+            selected_entry = booking_options[selected_label]
 
-        # --- Top metrics row ---
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Prediction", "Will Cancel" if prediction == 1 else "Won't Cancel")
-        col2.metric("Cancellation Probability", f"{prob * 100:.1f}%")
-        col3.metric("Actual Outcome", "Canceled" if actual == 1 else "Not Canceled")
+            # Fetch explanation
+            cache_key = f"explain_{selected_entry['rank']}"
+            if cache_key not in st.session_state:
+                with st.spinner("Analyzing booking..."):
+                    explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
+                    if "error" not in explain_result:
+                        st.session_state[cache_key] = explain_result
 
-        st.divider()
+            if cache_key in st.session_state:
+                explain = st.session_state[cache_key]
+                booking = selected_entry["booking"]
+                actual = selected_entry["actual_outcome"]
 
-        # --- Two-column layout: booking details | SHAP chart ---
-        left_col, right_col = st.columns([3, 2])
+                prob = explain["cancellation_probability"]
+                prediction = explain.get("prediction", int(prob >= 0.5))
 
-        with left_col:
-            st.subheader("Booking Details")
-            details = pd.DataFrame(
-                {"Field": list(booking.keys()), "Value": [str(v) for v in booking.values()]}
-            ).set_index("Field")
-            st.dataframe(details, use_container_width=True)
+                # Prediction Cards
+                pred_cols = st.columns(3)
 
-        with right_col:
-            st.subheader("SHAP — Top 5 Risk Factors")
-            st.caption("Features pushing this booking toward cancellation")
+                with pred_cols[0]:
+                    pred_text = "Will Cancel" if prediction == 1 else "Will Not Cancel"
+                    pred_color = "negative" if prediction == 1 else "positive"
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">AI Prediction</div>
+                            <div class="metric-value {pred_color}">{pred_text}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            # Keep only positive SHAP values (reasons to cancel), top 5
-            shap_df = pd.DataFrame(explain["grouped_local_shap"]).copy()
-            shap_df["shap_value"] = pd.to_numeric(shap_df["shap_value"], errors="coerce")
+                with pred_cols[1]:
+                    prob_color = "negative" if prob > 0.7 else "warning" if prob > 0.3 else "positive"
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">Confidence</div>
+                            <div class="metric-value {prob_color}">{prob:.0%}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            shap_df["feature"] = (
-                shap_df["feature_group"]
-                .astype(str)
-                .str.replace("_", " ", regex=False)
-                .str.title()
-            )
+                with pred_cols[2]:
+                    actual_text = "Canceled" if actual == 1 else "No Show"
+                    actual_color = "negative" if actual == 1 else "positive"
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">Actual Outcome</div>
+                            <div class="metric-value {actual_color}">{actual_text}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-            top_shap = (
-                shap_df[shap_df["shap_value"] > 0][["feature", "shap_value"]]
-                .dropna()
-                .sort_values("shap_value", ascending=False)
-                .head(5)
-                .reset_index(drop=True)
-            )
+                # Two column layout
+                detail_cols = st.columns([1, 1])
 
-            if top_shap.empty:
-                st.info("No cancellation risk factors found for this booking.")
-            else:
-                plot_df = top_shap.iloc[::-1].reset_index(drop=True)
+                with detail_cols[0]:
+                    st.markdown("#### Booking Details")
 
-                fig = go.Figure(
-                    go.Bar(
-                        x=plot_df["shap_value"].tolist(),
-                        y=plot_df["feature"].tolist(),
-                        orientation="h",
+                    details_df = pd.DataFrame([
+                        {"Attribute": k.replace("_", " ").title(), "Value": str(v)}
+                        for k, v in booking.items()
+                    ])
+
+                    st.dataframe(
+                        details_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Attribute": st.column_config.TextColumn("Field", width=150),
+                            "Value": st.column_config.TextColumn("Value")
+                        }
                     )
-                )
 
-                fig.update_layout(
-                    height=520,
-                    margin=dict(l=20, r=20, t=20, b=60),
-                    showlegend=False,
-                    xaxis_title="SHAP Value",
-                    yaxis_title="",
-                )
+                with detail_cols[1]:
+                    st.markdown("#### Risk Factor Breakdown")
+                    st.caption("Top factors increasing cancellation probability")
 
-                fig.update_yaxes(
-                    type="category",
-                    categoryorder="array",
-                    categoryarray=plot_df["feature"].tolist(),
-                    automargin=True,
-                )
+                    if "grouped_local_shap" in explain:
+                        shap_df = pd.DataFrame(explain["grouped_local_shap"])
+                        shap_df["shap_value"] = pd.to_numeric(shap_df["shap_value"], errors="coerce")
 
-                fig.update_xaxes(automargin=True)
+                        # Only positive contributions (increasing risk)
+                        risk_factors = shap_df[shap_df["shap_value"] > 0].sort_values("shap_value", ascending=False).head(5)
 
-                st.plotly_chart(fig, use_container_width=True)
+                        if not risk_factors.empty:
+                            risk_factors["feature"] = (
+                                risk_factors["feature_group"]
+                                .astype(str)
+                                .str.replace("_", " ", regex=False)
+                                .str.title()
+                            )
+
+                            fig_local = go.Figure(go.Bar(
+                                x=risk_factors["shap_value"].tolist(),
+                                y=risk_factors["feature"].tolist(),
+                                orientation="h",
+                                marker_color="#ef4444"
+                            ))
+
+                            fig_local.update_layout(
+                                height=350,
+                                showlegend=False,
+                                xaxis_title="Risk Contribution",
+                                yaxis_title="",
+                                plot_bgcolor='white',
+                                paper_bgcolor='white',
+                                margin=dict(l=20, r=20, t=20, b=40)
+                            )
+
+                            st.plotly_chart(fig_local, use_container_width=True)
+                        else:
+                            st.success("No significant risk factors identified — this booking appears stable.")
+                    else:
+                        st.info("Detailed explanation not available.")
+
+# ==================================================================
+# FOOTER
+# ==================================================================
+st.markdown("---")
+st.markdown("""
+    <div style="text-align: center; padding: 1rem; color: #9ca3af; font-size: 0.875rem;">
+        NoShowShield v2.0 • Powered by Machine Learning •
+        <span style="color: #6b7280;">Maximize Revenue, Minimize Risk</span>
+    </div>
+""", unsafe_allow_html=True)
