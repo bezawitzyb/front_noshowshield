@@ -405,13 +405,16 @@ with tab2:
 
     top_bookings_list = st.session_state.get("top_bookings_list", [])
 
-    if top_bookings_list:
-        dropdown_labels = [b["label"] for b in top_bookings_list]
-        selected_label = st.selectbox(
-            "Select a high-risk booking",
-            options=dropdown_labels,
-            index=0,
-        )
+    placeholder = "Select booking for prediction"
+    dropdown_labels = [placeholder] + [b["label"] for b in top_bookings_list]
+    selected_label = st.selectbox(
+        "Select a high-risk booking",
+        options=dropdown_labels,
+        index=0,
+        disabled=not top_bookings_list,
+    )
+
+    if selected_label != placeholder and top_bookings_list:
         selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
 
         # Fetch explanation when selection changes
