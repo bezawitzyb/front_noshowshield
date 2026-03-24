@@ -26,6 +26,7 @@ BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
 OPTIMISE_URL = BASE_URI + 'optimise'
 EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
 TOP_CANCELLATIONS_URL = BASE_URI + 'top-cancellations'
+GROUP_PROBS_URL = BASE_URI + 'group-probs'
 
 
 # ------------------------------------------------------------------
@@ -41,6 +42,28 @@ st.markdown(
     "Select a date and room type to see actionable recommendations backed "
     "by SHAP explainability."
 )
+
+
+# ------------------------------------------------------------------
+# Inline Poisson-Binomial PMF (avoids API round-trip per slider tick)
+# ------------------------------------------------------------------
+import numpy as np
+
+
+def poisson_binomial_pmf(probs):
+    """Exact Poisson-Binomial PMF via dynamic programming."""
+    probs = np.asarray(probs, dtype=np.float64)
+    n = len(probs)
+    if n == 0:
+        return np.array([1.0])
+    pmf = np.zeros(n + 1)
+    pmf[0] = 1.0
+    for p in probs:
+        new = np.empty_like(pmf)
+        new[0] = pmf[0] * (1 - p)
+        new[1:] = pmf[1:] * (1 - p) + pmf[:-1] * p
+        pmf = new
+    return pmf
 
 
 # ------------------------------------------------------------------
@@ -222,6 +245,174 @@ with tab1:
                 "Relocation Risk",
                 f"{row['relocation_probability'] * 100:.2f}%",
             )
+
+            st.divider()
+
+            # ------------------------------------------------------------------
+            # Show-up Distribution (Poisson-Binomial)
+            # ------------------------------------------------------------------
+            st.subheader("Show-up Distribution")
+            st.caption(
+                f"Poisson-Binomial distribution of expected show-ups for "
+                f"**{selected_room}** on **{selected_date}**. "
+                f"Slide to see how adding bookings shifts the distribution."
+            )
+
+            recommended_total = int(row["recommended_total"])
+            n_current = int(row["total_bookings"])
+            capacity = int(row["capacity"])
+
+            # Fetch individual cancel probs (fast fail + fallback to mean)
+            probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
+
+            if probs_cache_key not in st.session_state:
+                try:
+                    resp = requests.get(
+                        GROUP_PROBS_URL,
+                        params={
+                            "hotel": selected_hotel,
+                            "arrival_date": str(selected_date),
+                            "room_type": selected_room,
+                        },
+                        timeout=3,
+                    )
+                    if resp.status_code == 200:
+                        gp_result = resp.json()
+                        if "cancel_probs" in gp_result:
+                            st.session_state[probs_cache_key] = gp_result
+                    else:
+                        gp_result = {}
+                except Exception:
+                    gp_result = {}
+            else:
+                gp_result = st.session_state[probs_cache_key]
+
+            # Resolve: exact per-booking probs or mean fallback
+            if "cancel_probs" in gp_result:
+                cancel_probs_arr = np.array(gp_result["cancel_probs"], dtype=np.float64)
+            else:
+                mean_cp = row.get("cancel_prob_mean", row["expected_cancellations"] / row["total_bookings"])
+                cancel_probs_arr = np.full(n_current, float(mean_cp))
+
+            n_simulate = st.slider(
+                "Total bookings to simulate",
+                min_value=0,
+                max_value=recommended_total,
+                value=recommended_total,
+                help=(
+                    "Drag to see how the show-up distribution changes "
+                    "as bookings are added. Current bookings are included "
+                    "first; extra bookings use the group mean cancel rate."
+                ),
+            )
+
+            # Compute show-up PMF locally (instant)
+            if n_simulate == 0:
+                show_pmf = np.array([1.0])
+                mean_su = 0.0
+                std_su = 0.0
+                reloc_prob = 0.0
+                indiv_show = np.array([])
+            else:
+                if n_simulate <= n_current:
+                    sel_cancel = cancel_probs_arr[:n_simulate]
+                else:
+                    mean_cancel = cancel_probs_arr.mean()
+                    extra = n_simulate - n_current
+                    sel_cancel = np.concatenate([
+                        cancel_probs_arr,
+                        np.full(extra, mean_cancel),
+                    ])
+
+                indiv_show = 1.0 - sel_cancel
+                show_pmf = poisson_binomial_pmf(indiv_show)
+                mean_su = float(indiv_show.sum())
+                std_su = float(np.sqrt((indiv_show * (1 - indiv_show)).sum()))
+
+                if capacity + 1 <= n_simulate:
+                    reloc_prob = float(show_pmf[capacity + 1:].sum())
+                else:
+                    reloc_prob = 0.0
+
+            # Stats row
+            dcol1, dcol2, dcol3, dcol4 = st.columns(4)
+            dcol1.metric("Bookings Simulated", n_simulate)
+            dcol2.metric("Expected Show-ups", f"{mean_su:.1f}")
+            dcol3.metric("Std Deviation", f"{std_su:.2f}")
+            dcol4.metric("Relocation Risk", f"{reloc_prob * 100:.2f}%")
+
+            # Plotly PMF chart
+            import plotly.graph_objects as go
+
+            x_vals = list(range(len(show_pmf)))
+
+            fig_dist = go.Figure()
+
+            # blue ≤ current, green current..capacity, red > capacity
+            bar_colors = [
+                "#3498db" if k <= n_current
+                else "#2ecc71" if k <= capacity
+                else "#e74c3c"
+                for k in x_vals
+            ]
+
+            fig_dist.add_trace(go.Bar(
+                x=x_vals,
+                y=show_pmf.tolist(),
+                marker_color=bar_colors,
+                name="P(show-ups = k)",
+                hovertemplate="Show-ups: %{x}<br>Probability: %{y:.4f}<extra></extra>",
+            ))
+
+            # capacity vertical line
+            fig_dist.add_vline(
+                x=capacity + 0.5,
+                line_dash="dash",
+                line_color="#e74c3c",
+                line_width=2,
+                annotation_text=f"Capacity = {capacity}",
+                annotation_position="top left",
+                annotation_font_color="#e74c3c",
+                annotation_font_size=12,
+            )
+
+            fig_dist.update_layout(
+                xaxis_title="Number of Show-ups",
+                yaxis_title="Probability",
+                height=400,
+                margin=dict(l=0, r=20, t=30, b=0),
+                showlegend=False,
+                xaxis=dict(showgrid=False),
+                yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
+                bargap=0.05,
+            )
+
+            st.plotly_chart(fig_dist, use_container_width=True)
+
+            # Individual show-up probability badges
+            if n_simulate > 0:
+                show_pcts = (indiv_show * 100).astype(int).tolist()
+
+                display_limit = 15
+                badges = ""
+                for i, pct in enumerate(show_pcts[:display_limit]):
+                    color = "#3498db" if i < n_current else "#2ecc71"
+                    badges += (
+                        f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
+                        f'border-radius:12px;background:{color};color:white;'
+                        f'font-size:12px;font-weight:600;">{pct}</span>'
+                    )
+                remaining = len(show_pcts) - display_limit
+                if remaining > 0:
+                    badges += f' <span style="font-size:13px;color:#888;">…+{remaining} more</span>'
+
+                st.markdown(
+                    f"Individual show-up probabilities % "
+                    f"(<span style='color:#3498db'>■</span> Current "
+                    f"<span style='color:#2ecc71'>■</span> Extra)",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(badges, unsafe_allow_html=True)
 
             st.divider()
 
