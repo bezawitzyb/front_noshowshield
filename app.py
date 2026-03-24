@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 import time
 import plotly.express as px
-
+import plotly.graph_objects as go
 
 # ------------------------------------------------------------------
 # API configuration
@@ -312,44 +312,58 @@ with tab1:
                     st.info(shap_result["message"])
 
                 elif shap_result.get("grouped_global_shap"):
-                    shap_df = pd.DataFrame(shap_result["grouped_global_shap"])
+                    shap_df = pd.DataFrame(shap_result["grouped_global_shap"]).copy()
 
-                    # Clean up feature names for display
+                    shap_df["mean_abs_shap"] = pd.to_numeric(shap_df["mean_abs_shap"], errors="coerce")
+
                     shap_df["feature"] = (
                         shap_df["feature_group"]
+                        .astype(str)
                         .str.replace("cat_ordinal__", "", regex=False)
                         .str.replace("_", " ", regex=False)
                         .str.title()
                     )
 
-                    # Top 5 features, sorted ascending for horizontal bar
                     top_shap = (
-                        shap_df
-                        .nlargest(5, "mean_abs_shap")
-                        .sort_values("mean_abs_shap")
+                        shap_df[["feature", "mean_abs_shap"]]
+                        .dropna()
+                        .sort_values("mean_abs_shap", ascending=False)
+                        .head(5)
+                        .reset_index(drop=True)
                     )
 
-                    fig = px.bar(
-                        top_shap,
-                        x="mean_abs_shap",
-                        y="feature",
-                        orientation="h",
-                        labels={
-                            "mean_abs_shap": "Mean |SHAP Value|",
-                            "feature": "",
-                        },
-                        color="mean_abs_shap",
-                        color_continuous_scale=["#2ecc71", "#f39c12", "#e74c3c"],
-                    )
-                    fig.update_layout(
-                        height=400,
-                        margin=dict(l=0, r=0, t=10, b=0),
-                        showlegend=False,
-                        coloraxis_showscale=False,
-                        yaxis=dict(tickfont=dict(size=12)),
-                    )
+                    if top_shap.empty:
+                        st.info("No SHAP data available for this date and room type.")
+                    else:
+                        # reverse so the biggest bar is shown at the top
+                        plot_df = top_shap.iloc[::-1].reset_index(drop=True)
 
-                    st.plotly_chart(fig, use_container_width=True)
+                        fig = go.Figure(
+                            go.Bar(
+                                x=plot_df["mean_abs_shap"].tolist(),
+                                y=plot_df["feature"].tolist(),
+                                orientation="h",
+                            )
+                        )
+
+                        fig.update_layout(
+                            height=520,
+                            margin=dict(l=20, r=20, t=20, b=60),
+                            showlegend=False,
+                            xaxis_title="Mean |SHAP Value|",
+                            yaxis_title="",
+                        )
+
+                        fig.update_yaxes(
+                            type="category",
+                            categoryorder="array",
+                            categoryarray=plot_df["feature"].tolist(),
+                            automargin=True,
+                        )
+
+                        fig.update_xaxes(automargin=True)
+
+                        st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("No SHAP data available for this date and room type.")
