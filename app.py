@@ -336,9 +336,11 @@ with tab1:
 
                 fig_dist = go.Figure()
 
-                # colour bars: green if ≤ capacity, red if > capacity
+                # colour bars: blue ≤ current, green current..capacity, red > capacity
                 bar_colors = [
-                    "#2ecc71" if k <= capacity else "#e74c3c"
+                    "#3498db" if k <= n_current
+                    else "#2ecc71" if k <= capacity
+                    else "#e74c3c"
                     for k in x_vals
                 ]
 
@@ -384,7 +386,7 @@ with tab1:
                     display_limit = 15
                     badges = ""
                     for i, pct in enumerate(show_pcts[:display_limit]):
-                        color = "#3498db" if i < n_current else "#f39c12"
+                        color = "#3498db" if i < n_current else "#2ecc71"
                         badges += (
                             f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
                             f'border-radius:12px;background:{color};color:white;'
@@ -397,7 +399,7 @@ with tab1:
                     st.markdown(
                         f"Individual show-up probabilities % "
                         f"(<span style='color:#3498db'>■</span> Current "
-                        f"<span style='color:#f39c12'>■</span> Extra)",
+                        f"<span style='color:#2ecc71'>■</span> Extra)",
                         unsafe_allow_html=True,
                     )
                     st.markdown(badges, unsafe_allow_html=True)
