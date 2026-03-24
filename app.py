@@ -272,9 +272,12 @@ with tab1:
                         "arrival_date": str(selected_date),
                         "room_type": selected_room,
                     },
-                    timeout=30,
+                    timeout=5,
+                    max_retries=1,
                 )
-                st.session_state[probs_cache_key] = gp_result
+                # Only cache successful results — retry next time if it failed
+                if "error" not in gp_result and "cancel_probs" in gp_result:
+                    st.session_state[probs_cache_key] = gp_result
             else:
                 gp_result = st.session_state[probs_cache_key]
 
