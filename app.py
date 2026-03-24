@@ -70,7 +70,7 @@ max_risk = st.sidebar.slider(
 # ------------------------------------------------------------------
 # API helpers
 # ------------------------------------------------------------------
-def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
+def api_get(url: str, params: dict, timeout: int = 180, max_retries: int = 3):
     """
     GET request with retries for Cloud Run cold starts.
     Returns the JSON response or a dict with an 'error' key.
@@ -257,11 +257,11 @@ with tab1:
                         st.info("No booking data available.")
                     else:
                         top_3_df = pd.DataFrame(top_3_data)
-                        
+
                         # Formatting for display
                         top_3_df["cancel_prob"] = (top_3_df["cancel_prob"] * 100).map("{:.1f}%".format)
                         top_3_df["adr"] = top_3_df["adr"].map("€{:.2f}".format)
-                        
+
                         # Rename columns for presentation
                         col_mapping = {
                             "lead_time": "Lead Time (days)",
@@ -272,7 +272,7 @@ with tab1:
                             "cancel_prob": "Cancel Risk"
                         }
                         top_3_df = top_3_df.rename(columns=col_mapping)
-                        
+
                         # Reorder to match mapping order
                         display_cols = [v for k, v in col_mapping.items() if v in top_3_df.columns]
                         st.table(top_3_df[display_cols])
@@ -360,8 +360,8 @@ with tab1:
 # ==================================================================
 
 # Additional URL constants used only by tab 2
-RANDOM_BOOKING_URL = BASE_URI + 'random-booking'
-EXPLAIN_LOCAL_URL  = BASE_URI + 'explain/local'
+TOP_BOOKINGS_URL  = BASE_URI + 'top-bookings'
+EXPLAIN_LOCAL_URL = BASE_URI + 'explain/local'
 
 
 def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
@@ -388,27 +388,49 @@ def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
 with tab2:
     st.subheader("Single Booking Prediction")
     st.markdown(
-        "Pick a random booking from the test set to see the model's "
-        "cancellation prediction and the SHAP values explaining it."
+        "Select one of the top 3 bookings with the highest predicted cancellation "
+        "risk to see the model's prediction and the SHAP values explaining it."
     )
 
-    if st.button("🎲 Pick Random Booking", type="primary"):
-        with st.spinner("Fetching a random booking …"):
-            booking_result = api_get(RANDOM_BOOKING_URL, {}, timeout=30, max_retries=2)
-        if "error" in booking_result:
-            st.error(booking_result["error"])
+    # Load top bookings once per session, but only after the main results are ready
+    # (avoids a double API call when the user first clicks "Get Recommendations")
+    if "top_bookings_list" not in st.session_state and "results" in st.session_state:
+        with st.spinner("Loading top high-risk bookings …"):
+            top_result = api_get(TOP_BOOKINGS_URL, {}, timeout=60, max_retries=2)
+        if "error" in top_result:
+            st.error(top_result["error"])
+            st.session_state["top_bookings_list"] = []
         else:
+            st.session_state["top_bookings_list"] = top_result["top_bookings"]
+
+    top_bookings_list = st.session_state.get("top_bookings_list", [])
+
+    if top_bookings_list:
+        dropdown_labels = [b["label"] for b in top_bookings_list]
+        selected_label = st.selectbox(
+            "Select a high-risk booking",
+            options=dropdown_labels,
+            index=0,
+        )
+        selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
+
+        # Fetch explanation when selection changes
+        cache_key = f"explain_{selected_entry['rank']}"
+        if cache_key not in st.session_state:
             with st.spinner("Running prediction and SHAP explanation …"):
-                explain_result = api_post(EXPLAIN_LOCAL_URL, booking_result["booking"])
+                explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
             if "error" in explain_result:
                 st.error(explain_result["error"])
             else:
-                st.session_state["single_booking"] = booking_result["booking"]
-                st.session_state["single_actual"]  = booking_result["actual_outcome"]
-                st.session_state["single_explain"] = explain_result
+                st.session_state[cache_key] = explain_result
+
+        if cache_key in st.session_state:
+            st.session_state["single_booking"] = selected_entry["booking"]
+            st.session_state["single_actual"]  = selected_entry["actual_outcome"]
+            st.session_state["single_explain"] = st.session_state[cache_key]
 
     if "single_booking" not in st.session_state:
-        st.info("Click **Pick Random Booking** to load a booking from the test set.")
+        st.info("Select a booking above to load its prediction.")
     else:
         booking = st.session_state["single_booking"]
         actual  = st.session_state["single_actual"]
