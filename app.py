@@ -12,8 +12,6 @@ import pandas as pd
 import requests
 import time
 import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
 
 
 # ------------------------------------------------------------------
@@ -27,6 +25,7 @@ BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
 
 OPTIMISE_URL = BASE_URI + 'optimise'
 EXPLAIN_GLOBAL_URL = BASE_URI + 'explain/global-by-date'
+GROUP_PROBS_URL = BASE_URI + 'group-probs'
 
 
 # ------------------------------------------------------------------
@@ -42,6 +41,28 @@ st.markdown(
     "Select a date and room type to see actionable recommendations backed "
     "by SHAP explainability."
 )
+
+
+# ------------------------------------------------------------------
+# Inline Poisson-Binomial PMF (avoids API round-trip per slider tick)
+# ------------------------------------------------------------------
+import numpy as np
+
+
+def poisson_binomial_pmf(probs):
+    """Exact Poisson-Binomial PMF via dynamic programming."""
+    probs = np.asarray(probs, dtype=np.float64)
+    n = len(probs)
+    if n == 0:
+        return np.array([1.0])
+    pmf = np.zeros(n + 1)
+    pmf[0] = 1.0
+    for p in probs:
+        new = np.empty_like(pmf)
+        new[0] = pmf[0] * (1 - p)
+        new[1:] = pmf[1:] * (1 - p) + pmf[:-1] * p
+        pmf = new
+    return pmf
 
 
 # ------------------------------------------------------------------
@@ -96,104 +117,6 @@ def api_get(url: str, params: dict, timeout: int = 120, max_retries: int = 3):
 
 
 # ------------------------------------------------------------------
-# PMF computation helper (client-side) - FIXED VERSION
-# ------------------------------------------------------------------
-def compute_pmf_exact(probs):
-    """
-    Compute exact Poisson-Binomial PMF using dynamic programming.
-    Returns: x (list of ints), pmf (list of floats)
-    """
-    probs = np.asarray(probs, dtype=np.float64)
-    n = len(probs)
-
-    if n == 0:
-        return [0], [1.0]
-
-    # DP array: pmf[k] = probability of k cancellations
-    pmf = np.zeros(n + 1)
-    pmf[0] = 1.0
-
-    for p in probs:
-        new_pmf = np.zeros(n + 1)
-        for k in range(n + 1):
-            if k == 0:
-                new_pmf[k] = pmf[k] * (1 - p)
-            else:
-                new_pmf[k] = pmf[k-1] * p + pmf[k] * (1 - p)
-        pmf = new_pmf
-
-    x = list(range(n + 1))
-    pmf = pmf.tolist()
-
-    return x, pmf
-
-
-def compute_pmf_normal(probs):
-    """
-    Normal approximation for large n.
-    """
-    probs = np.asarray(probs, dtype=np.float64)
-    n = len(probs)
-    mean = np.sum(probs)
-    variance = np.sum(probs * (1 - probs))
-
-    if variance < 1e-6:
-        x = [int(round(mean))]
-        pmf = [1.0]
-        return x, pmf
-
-    std = np.sqrt(variance)
-
-    # Create range covering mean ± 4 std devs
-    x_min = max(0, int(mean - 4*std))
-    x_max = min(n, int(mean + 4*std))
-
-    # Ensure reasonable range
-    if x_max <= x_min:
-        x_max = x_min + 1
-
-    x = list(range(x_min, x_max + 1))
-
-    # Normal PDF
-    pmf = [(1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((xi - mean) / std) ** 2) for xi in x]
-
-    # Normalize
-    total = sum(pmf)
-    pmf = [p / total for p in pmf]
-
-    return x, pmf
-
-
-def compute_pmf_fast(cancel_probs):
-    """
-    Compute PMF using exact method for small n, Normal approximation for large n.
-    Returns Python lists (not numpy arrays) for Plotly compatibility.
-    """
-    try:
-        # Ensure numpy array and clean data
-        probs = np.asarray(cancel_probs, dtype=np.float64)
-
-        # Handle NaN/inf and clip to valid range
-        probs = np.nan_to_num(probs, nan=0.5, posinf=1.0, neginf=0.0)
-        probs = np.clip(probs, 0.0, 1.0)
-
-        n = len(probs)
-
-        if n == 0:
-            return [0], [1.0]
-        elif n <= 80:
-            return compute_pmf_exact(probs)
-        else:
-            return compute_pmf_normal(probs)
-
-    except Exception as e:
-        st.error(f"PMF computation error: {e}")
-        # Fallback to uniform
-        n = len(cancel_probs) if cancel_probs is not None else 1
-        return list(range(n + 1)), [1.0/(n+1)] * (n + 1)
-
-
-# ------------------------------------------------------------------
 # Load optimisation data — triggered by button
 # ------------------------------------------------------------------
 if st.sidebar.button("Get Recommendations", type="primary", use_container_width=True):
@@ -217,7 +140,9 @@ tab1, tab2 = st.tabs(["Overbooking Recommendations", "Single Booking Prediction"
 
 
 # ==================================================================
-# TAB 1 — Overbooking Recommendations
+# TAB 1 — Bezas CODE
+# Note: st.stop() replaced with if/else so tab 2 can render.
+# Only other change: nlargest(10) → nlargest(5) per product request.
 # ==================================================================
 with tab1:
     # ------------------------------------------------------------------
@@ -323,12 +248,171 @@ with tab1:
             st.divider()
 
             # ------------------------------------------------------------------
-            # Revenue Comparison + SHAP — two-column layout
+            # Show-up Distribution (Poisson-Binomial)
+            # ------------------------------------------------------------------
+            st.subheader("Show-up Distribution")
+            st.caption(
+                f"Poisson-Binomial distribution of expected show-ups for "
+                f"**{selected_room}** on **{selected_date}**. "
+                f"Slide to see how adding bookings shifts the distribution."
+            )
+
+            recommended_total = int(row["recommended_total"])
+            n_current = int(row["total_bookings"])
+            capacity = int(row["capacity"])
+
+            # Fetch individual cancel probs for this group (cached per selection)
+            probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
+
+            if probs_cache_key not in st.session_state:
+                gp_result = api_get(
+                    GROUP_PROBS_URL,
+                    {
+                        "hotel": selected_hotel,
+                        "arrival_date": str(selected_date),
+                        "room_type": selected_room,
+                    },
+                    timeout=30,
+                )
+                st.session_state[probs_cache_key] = gp_result
+            else:
+                gp_result = st.session_state[probs_cache_key]
+
+            if "error" not in gp_result:
+                cancel_probs_list = gp_result["cancel_probs"]
+                cancel_probs_arr = np.array(cancel_probs_list, dtype=np.float64)
+
+                n_simulate = st.slider(
+                    "Total bookings to simulate",
+                    min_value=0,
+                    max_value=recommended_total,
+                    value=recommended_total,
+                    help=(
+                        "Drag to see how the show-up distribution changes "
+                        "as bookings are added. Current bookings are included "
+                        "first; extra bookings use the group mean cancel rate."
+                    ),
+                )
+
+                # --- Compute show-up PMF locally (instant) ---
+                if n_simulate == 0:
+                    show_pmf = np.array([1.0])
+                    mean_su = 0.0
+                    std_su = 0.0
+                    reloc_prob = 0.0
+                    indiv_show = np.array([])
+                else:
+                    if n_simulate <= n_current:
+                        sel_cancel = cancel_probs_arr[:n_simulate]
+                    else:
+                        mean_cancel = cancel_probs_arr.mean()
+                        extra = n_simulate - n_current
+                        sel_cancel = np.concatenate([
+                            cancel_probs_arr,
+                            np.full(extra, mean_cancel),
+                        ])
+
+                    indiv_show = 1.0 - sel_cancel
+                    show_pmf = poisson_binomial_pmf(indiv_show)
+                    mean_su = float(indiv_show.sum())
+                    std_su = float(np.sqrt((indiv_show * (1 - indiv_show)).sum()))
+
+                    if capacity + 1 <= n_simulate:
+                        reloc_prob = float(show_pmf[capacity + 1:].sum())
+                    else:
+                        reloc_prob = 0.0
+
+                # --- Stats row ---
+                dcol1, dcol2, dcol3, dcol4 = st.columns(4)
+                dcol1.metric("Bookings Simulated", n_simulate)
+                dcol2.metric("Expected Show-ups", f"{mean_su:.1f}")
+                dcol3.metric("Std Deviation", f"{std_su:.2f}")
+                dcol4.metric("Relocation Risk", f"{reloc_prob * 100:.2f}%")
+
+                # --- Plotly PMF chart ---
+                import plotly.graph_objects as go
+
+                x_vals = list(range(len(show_pmf)))
+
+                fig_dist = go.Figure()
+
+                # colour bars: green if ≤ capacity, red if > capacity
+                bar_colors = [
+                    "#2ecc71" if k <= capacity else "#e74c3c"
+                    for k in x_vals
+                ]
+
+                fig_dist.add_trace(go.Bar(
+                    x=x_vals,
+                    y=show_pmf.tolist(),
+                    marker_color=bar_colors,
+                    name="P(show-ups = k)",
+                    hovertemplate="Show-ups: %{x}<br>Probability: %{y:.4f}<extra></extra>",
+                ))
+
+                # capacity vertical line
+                fig_dist.add_vline(
+                    x=capacity + 0.5,
+                    line_dash="dash",
+                    line_color="#e74c3c",
+                    line_width=2,
+                    annotation_text=f"Capacity = {capacity}",
+                    annotation_position="top left",
+                    annotation_font_color="#e74c3c",
+                    annotation_font_size=12,
+                )
+
+                fig_dist.update_layout(
+                    xaxis_title="Number of Show-ups",
+                    yaxis_title="Probability",
+                    height=400,
+                    margin=dict(l=0, r=20, t=30, b=0),
+                    showlegend=False,
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
+                    bargap=0.05,
+                )
+
+                st.plotly_chart(fig_dist, use_container_width=True)
+
+                # --- Individual show-up probabilities (like the reference image) ---
+                if n_simulate > 0:
+                    show_pcts = (indiv_show * 100).astype(int).tolist()
+                    current_pcts = show_pcts[:min(n_simulate, n_current)]
+                    extra_pcts = show_pcts[n_current:] if n_simulate > n_current else []
+
+                    display_limit = 15
+                    badges = ""
+                    for i, pct in enumerate(show_pcts[:display_limit]):
+                        color = "#3498db" if i < n_current else "#f39c12"
+                        badges += (
+                            f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
+                            f'border-radius:12px;background:{color};color:white;'
+                            f'font-size:12px;font-weight:600;">{pct}</span>'
+                        )
+                    remaining = len(show_pcts) - display_limit
+                    if remaining > 0:
+                        badges += f' <span style="font-size:13px;color:#888;">…+{remaining} more</span>'
+
+                    st.markdown(
+                        f"Individual show-up probabilities % "
+                        f"(<span style='color:#3498db'>■</span> Current "
+                        f"<span style='color:#f39c12'>■</span> Extra)",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(badges, unsafe_allow_html=True)
+
+            st.divider()
+
+            # ------------------------------------------------------------------
+            # SHAP Explainability + Detailed table — two-column layout
             # ------------------------------------------------------------------
             left_col, right_col = st.columns([3, 2])
 
             # --- Left: Revenue comparison chart ---
             with left_col:
+                import plotly.graph_objects as go
+
                 st.subheader("Revenue Comparison")
                 st.caption(
                     f"Expected revenue for **{selected_room}** on **{selected_date}**"
@@ -405,7 +489,7 @@ with tab1:
                                 "room_type": selected_room,
                                 "hotel": selected_hotel,
                             },
-                            timeout=180,
+                            timeout=60,
                             max_retries=2,
                         )
                     st.session_state[cache_key] = shap_result
@@ -461,249 +545,9 @@ with tab1:
                 else:
                     st.info("No SHAP data available for this date and room type.")
 
-            # ------------------------------------------------------------------
-            # Cancellation Distribution Charts — Two interactive charts with sliders
-            # ------------------------------------------------------------------
-            st.divider()
-            st.subheader("Cancellation Risk Analysis")
-
-            # Validate that we have individual_probs
-            if "individual_probs" not in row or row["individual_probs"] is None:
-                st.error("No individual probabilities found in the data.")
-            else:
-                try:
-                    # Convert to numpy array and ensure valid values
-                    cancel_probs_raw = np.array(row["individual_probs"])
-
-                    if len(cancel_probs_raw) == 0:
-                        st.warning("No cancellation probabilities available.")
-                    else:
-                        # Clean data - ensure they're proper probabilities between 0 and 1
-                        cancel_probs_raw = np.clip(cancel_probs_raw, 0.0, 1.0)
-
-                        mean_cancel = float(np.mean(cancel_probs_raw))
-                        recommended_extra = int(row["recommended_extra"])
-                        recommended_total = int(row["total_bookings"] + recommended_extra)
-                        capacity = int(row["capacity"])
-                        min_needed = max(0, recommended_total - capacity)
-
-                        # Prepare extended probabilities for recommended scenario
-                        if recommended_extra > 0:
-                            extended_probs = np.concatenate([
-                                cancel_probs_raw,
-                                np.full(recommended_extra, mean_cancel)
-                            ])
-                        else:
-                            extended_probs = cancel_probs_raw
-
-                        dist_col1, dist_col2 = st.columns(2)
-
-                        # --- LEFT CHART: Current Bookings ---
-                        with dist_col1:
-                            st.markdown("**Current Bookings**")
-
-                            n_current_max = len(cancel_probs_raw)
-
-                            n_current = st.slider(
-                                "Bookings processed",
-                                min_value=1,
-                                max_value=int(n_current_max),
-                                value=int(n_current_max),
-                                key="current_slider"
-                            )
-
-                            # Subset probabilities based on slider
-                            current_probs = cancel_probs_raw[:n_current]
-
-                            # Metrics
-                            outcomes = int(n_current + 1)
-                            expected = float(np.sum(current_probs))
-                            std_dev = float(np.sqrt(np.sum(current_probs * (1 - current_probs))))
-
-                            m1, m2, m3 = st.columns(3)
-                            m1.metric("Possible outcomes", outcomes)
-                            m2.metric("Expected cancellations", f"{expected:.1f}")
-                            m3.metric("Std deviation", f"{std_dev:.2f}")
-
-                            # Compute distribution - returns Python lists
-                            x_cur, pmf_cur = compute_pmf_fast(current_probs)
-
-                            # DEBUG: Show data being passed to Plotly
-                            # st.write(f"Debug: x_cur={x_cur[:5]}..., pmf_cur={pmf_cur[:5]}..., sum={sum(pmf_cur):.4f}")
-
-                            if len(x_cur) > 0 and len(pmf_cur) > 0 and sum(pmf_cur) > 0:
-                                # Create bar chart with explicit data
-                                fig_cur = go.Figure(data=[
-                                    go.Bar(
-                                        x=x_cur,
-                                        y=pmf_cur,
-                                        marker_color="#6366f1",
-                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
-                                    )
-                                ])
-
-                                # Set layout with proper ranges
-                                y_max = max(pmf_cur) * 1.2 if pmf_cur else 0.1
-
-                                fig_cur.update_layout(
-                                    height=300,
-                                    margin=dict(l=0, r=0, t=20, b=0),
-                                    xaxis=dict(
-                                        title="Number of Cancellations",
-                                        tickmode='linear',
-                                        tick0=0,
-                                        dtick=max(1, n_current // 5),
-                                        range=[-0.5, n_current + 0.5]
-                                    ),
-                                    yaxis=dict(
-                                        title="Probability",
-                                        range=[0, y_max]
-                                    ),
-                                    showlegend=False,
-                                    template="plotly_white",
-                                    bargap=0.2
-                                )
-
-                                st.plotly_chart(fig_cur, use_container_width=True)
-                            else:
-                                st.error("Failed to compute distribution")
-
-                            # Individual probability pills
-                            st.caption("Individual booking cancel probabilities:")
-                            if len(current_probs) > 0:
-                                prob_vals = [int(float(p)*100) for p in current_probs[:15]]
-                                pills_html = "".join([
-                                    f'<span style="background-color: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600; border: 1px solid #c7d2fe;">{p}</span>'
-                                    for p in prob_vals
-                                ])
-                                if len(current_probs) > 15:
-                                    pills_html += f'<span style="padding: 4px;">...+{len(current_probs)-15} more</span>'
-                                st.markdown(pills_html, unsafe_allow_html=True)
-
-                        # --- RIGHT CHART: Recommended Bookings ---
-                        with dist_col2:
-                            st.markdown("**Recommended Bookings** (Current + Extras)")
-
-                            n_rec_max = len(extended_probs)
-
-                            n_rec = st.slider(
-                                "Bookings processed",
-                                min_value=1,
-                                max_value=int(n_rec_max),
-                                value=int(n_rec_max),
-                                key="rec_slider"
-                            )
-
-                            # Subset probabilities based on slider
-                            rec_probs = extended_probs[:n_rec]
-
-                            # Metrics
-                            outcomes_rec = int(n_rec + 1)
-                            expected_rec = float(np.sum(rec_probs))
-                            std_dev_rec = float(np.sqrt(np.sum(rec_probs * (1 - rec_probs))))
-
-                            m1, m2, m3 = st.columns(3)
-                            m1.metric("Possible outcomes", outcomes_rec)
-                            m2.metric("Expected cancellations", f"{expected_rec:.1f}")
-                            m3.metric("Std deviation", f"{std_dev_rec:.2f}")
-
-                            # Compute distribution
-                            x_rec, pmf_rec = compute_pmf_fast(rec_probs)
-
-                            if len(x_rec) > 0 and len(pmf_rec) > 0 and sum(pmf_rec) > 0:
-                                # Determine color based on whether showing extras
-                                is_all_current = n_rec <= len(cancel_probs_raw)
-                                bar_color = "#6366f1" if is_all_current else "#f97316"
-
-                                fig_rec = go.Figure(data=[
-                                    go.Bar(
-                                        x=x_rec,
-                                        y=pmf_rec,
-                                        marker_color=bar_color,
-                                        hovertemplate="Cancellations: %{x}<br>Probability: %{y:.4f}<extra></extra>"
-                                    )
-                                ])
-
-                                # Add threshold line if needed
-                                shapes = []
-                                annotations = []
-                                if min_needed > 0:
-                                    shapes.append(dict(
-                                        type='line',
-                                        x0=min_needed - 0.5,
-                                        x1=min_needed - 0.5,
-                                        y0=0,
-                                        y1=max(pmf_rec) * 1.1,
-                                        line=dict(color='red', width=2, dash='dash')
-                                    ))
-                                    annotations.append(dict(
-                                        x=min_needed,
-                                        y=max(pmf_rec) * 1.05,
-                                        text=f"Need ≥{min_needed}",
-                                        showarrow=False,
-                                        font=dict(color='red', size=12)
-                                    ))
-
-                                y_max_rec = max(pmf_rec) * 1.2 if pmf_rec else 0.1
-
-                                fig_rec.update_layout(
-                                    height=300,
-                                    margin=dict(l=0, r=0, t=20, b=0),
-                                    xaxis=dict(
-                                        title="Number of Cancellations",
-                                        tickmode='linear',
-                                        tick0=0,
-                                        dtick=max(1, n_rec // 5),
-                                        range=[-0.5, max(n_rec, min_needed + 5) + 0.5]
-                                    ),
-                                    yaxis=dict(
-                                        title="Probability",
-                                        range=[0, y_max_rec]
-                                    ),
-                                    showlegend=False,
-                                    template="plotly_white",
-                                    bargap=0.2,
-                                    shapes=shapes,
-                                    annotations=annotations
-                                )
-
-                                st.plotly_chart(fig_rec, use_container_width=True)
-
-                                # Safety buffer calculation
-                                if min_needed > 0 and len(x_rec) > 0:
-                                    prob_safe = sum([p for x, p in zip(x_rec, pmf_rec) if x >= min_needed])
-                                    st.markdown(f"**Safety buffer:** {prob_safe*100:.1f}% chance of ≥{min_needed} cancellations")
-                            else:
-                                st.error("Failed to compute distribution")
-
-                            # Probability pills
-                            st.caption("Individual cancel probabilities (Blue=Current, Orange=Extra):")
-                            if len(rec_probs) > 0:
-                                pills_rec = []
-                                for i, p in enumerate(rec_probs[:15]):
-                                    p_int = int(float(p)*100)
-                                    if i < len(cancel_probs_raw):
-                                        style = 'background-color: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;'
-                                    else:
-                                        style = 'background-color: #ffedd5; color: #9a3412; border: 1px solid #fed7aa;'
-
-                                    pills_rec.append(
-                                        f'<span style="{style} padding: 4px 10px; border-radius: 12px; margin: 2px; display: inline-block; font-size: 13px; font-weight: 600;">{p_int}</span>'
-                                    )
-
-                                if len(rec_probs) > 15:
-                                    pills_rec.append(f'<span style="padding: 4px;">...+{len(rec_probs)-15} more</span>')
-
-                                st.markdown("".join(pills_rec), unsafe_allow_html=True)
-
-                except Exception as e:
-                    st.error(f"Error rendering charts: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())
-
 
 # ==================================================================
-# TAB 2 — Single Booking Prediction
+# TAB 2 — Alex CODE (single booking prediction)
 # ==================================================================
 
 # Additional URL constants used only by tab 2
@@ -711,7 +555,7 @@ RANDOM_BOOKING_URL = BASE_URI + 'random-booking'
 EXPLAIN_LOCAL_URL  = BASE_URI + 'explain/local'
 
 
-def api_post(url: str, payload: dict, timeout: int = 180, max_retries: int = 2):
+def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
     """POST request with retries. Returns JSON or a dict with an 'error' key."""
     for attempt in range(1, max_retries + 1):
         try:
@@ -778,7 +622,7 @@ with tab2:
         with left_col:
             st.subheader("Booking Details")
             details = pd.DataFrame(
-                {"Field": list(booking.keys()), "Value": [str(v) for v in booking.values()]}
+                {"Field": list(booking.keys()), "Value": list(booking.values())}
             ).set_index("Field")
             st.dataframe(details, use_container_width=True)
 
