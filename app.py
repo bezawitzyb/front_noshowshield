@@ -124,7 +124,7 @@ if st.sidebar.button("Get Recommendations", type="primary", use_container_width=
         results = api_get(OPTIMISE_URL, {
             "relocation_cost": relocation_cost,
             "max_risk": max_risk,
-        })
+        }, timeout=300)
     if "error" in results:
         st.error(results["error"])
     else:
