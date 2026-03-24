@@ -265,19 +265,25 @@ with tab1:
             probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
 
             if probs_cache_key not in st.session_state:
-                gp_result = api_get(
-                    GROUP_PROBS_URL,
-                    {
-                        "hotel": selected_hotel,
-                        "arrival_date": str(selected_date),
-                        "room_type": selected_room,
-                    },
-                    timeout=5,
-                    max_retries=1,
-                )
-                # Only cache successful results — retry next time if it failed
-                if "error" not in gp_result and "cancel_probs" in gp_result:
-                    st.session_state[probs_cache_key] = gp_result
+                # Try the /group-probs endpoint (only works after API redeploy)
+                try:
+                    resp = requests.get(
+                        GROUP_PROBS_URL,
+                        params={
+                            "hotel": selected_hotel,
+                            "arrival_date": str(selected_date),
+                            "room_type": selected_room,
+                        },
+                        timeout=3,
+                    )
+                    if resp.status_code == 200:
+                        gp_result = resp.json()
+                        if "cancel_probs" in gp_result:
+                            st.session_state[probs_cache_key] = gp_result
+                    else:
+                        gp_result = {}
+                except Exception:
+                    gp_result = {}
             else:
                 gp_result = st.session_state[probs_cache_key]
 
