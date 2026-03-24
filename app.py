@@ -343,7 +343,7 @@ with tab1:
                     )
                     fig.update_layout(
                         height=400,
-                        margin=dict(l=0, r=0, t=10, b=0),
+                        margin=dict(l=0, r=0, t=10, b=40),
                         showlegend=False,
                         coloraxis_showscale=False,
                         yaxis=dict(tickfont=dict(size=12)),
