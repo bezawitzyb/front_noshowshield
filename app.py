@@ -670,35 +670,52 @@ with tab2:
             st.caption("Features pushing this booking toward cancellation")
 
             # Keep only positive SHAP values (reasons to cancel), top 5
-            shap_df = pd.DataFrame(explain["grouped_local_shap"])
-            top_shap = (
-                shap_df[shap_df["shap_value"] > 0]
-                .nlargest(5, "shap_value")
-                .sort_values("shap_value")
-            )
-            top_shap["feature"] = (
-                top_shap["feature_group"]
+            shap_df = pd.DataFrame(explain["grouped_local_shap"]).copy()
+            shap_df["shap_value"] = pd.to_numeric(shap_df["shap_value"], errors="coerce")
+
+            shap_df["feature"] = (
+                shap_df["feature_group"]
+                .astype(str)
                 .str.replace("_", " ", regex=False)
                 .str.title()
+            )
+
+            top_shap = (
+                shap_df[shap_df["shap_value"] > 0][["feature", "shap_value"]]
+                .dropna()
+                .sort_values("shap_value", ascending=False)
+                .head(5)
+                .reset_index(drop=True)
             )
 
             if top_shap.empty:
                 st.info("No cancellation risk factors found for this booking.")
             else:
-                fig = px.bar(
-                    top_shap,
-                    x="shap_value",
-                    y="feature",
-                    orientation="h",
-                    labels={"shap_value": "SHAP Value", "feature": ""},
-                    color="shap_value",
-                    color_continuous_scale=["#f39c12", "#e74c3c"],
+                plot_df = top_shap.iloc[::-1].reset_index(drop=True)
+
+                fig = go.Figure(
+                    go.Bar(
+                        x=plot_df["shap_value"].tolist(),
+                        y=plot_df["feature"].tolist(),
+                        orientation="h",
+                    )
                 )
+
                 fig.update_layout(
-                    height=400,
-                    margin=dict(l=0, r=0, t=10, b=0),
+                    height=520,
+                    margin=dict(l=20, r=20, t=20, b=60),
                     showlegend=False,
-                    coloraxis_showscale=False,
-                    yaxis=dict(tickfont=dict(size=12)),
+                    xaxis_title="SHAP Value",
+                    yaxis_title="",
                 )
+
+                fig.update_yaxes(
+                    type="category",
+                    categoryorder="array",
+                    categoryarray=plot_df["feature"].tolist(),
+                    automargin=True,
+                )
+
+                fig.update_xaxes(automargin=True)
+
                 st.plotly_chart(fig, use_container_width=True)
