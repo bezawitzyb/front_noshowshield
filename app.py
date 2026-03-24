@@ -554,7 +554,7 @@ with tab1:
 
                         fig.update_xaxes(automargin=True)
 
-                        st.plotly_chart(fig, use_container_width=True
+                        st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("No SHAP data available for this date and room type.")
