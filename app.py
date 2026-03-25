@@ -23,7 +23,8 @@ CLR_PAGE_BG       = "#F4F7FA"
 CLR_CARD_BLUE     = "#DBEAF5"   # Capacity, Confirmed Bookings
 CLR_CARD_GREEN    = "#DCF2E9"   # Expected Show-ups
 CLR_CARD_RED      = "#FEE2E2"   # Relocation Risk / Cost
-CLR_CARD_AMBER    = "#A1E7D6"   # Rec. Extra Bookings
+CLR_CARD_DEEP_GREEN = "#A1E7D6"   # Rec. Extra Bookings
+CLR_CARD_AMBER    = "#E5E7A1"   # yellow
 # Card fills — row 2 (financial / risk metrics)
 CLR_CARD_YELLOW   = "#E5E7EB"   # Current Revenue
 CLR_CARD_RED2     = "#FEE2E2"   # Relocation Risk (shared)
@@ -586,7 +587,7 @@ with tab1:
             ), unsafe_allow_html=True)
         with c4:
             st.markdown(card_html(
-                CLR_CARD_AMBER, "fa-plus",
+                CLR_CARD_DEEP_GREEN, "fa-plus",
                 "Rec. Extra Bookings",
                 f"+{rec_extra}",
                 "Desired booking to maximise revenue safety."
@@ -620,7 +621,7 @@ with tab1:
             ), unsafe_allow_html=True)
         with c8:
             st.markdown(card_html(
-                CLR_CARD_SOFTGRN, "fa-chart-line",
+                CLR_CARD_DEEP_GREEN, "fa-chart-line",
                 "Predicted Net Benefit",
                 f"€{net_benefit:,.0f}",
                 "Additional revenue minus relocation cost."
