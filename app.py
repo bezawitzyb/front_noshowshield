@@ -26,7 +26,7 @@ st.set_page_config(
 )
 
 # ── Brand palette ────────────────────────────────────────────────────
-# Deep Slate background, Teal accent (from presentation), warm grays
+# Light theme — soft lavender background, deep indigo accent, white cards
 BRAND_CSS = """
 <style>
 /* ── Import fonts ─────────────────────────────────────────── */
@@ -34,77 +34,117 @@ BRAND_CSS = """
 
 /* ── Root variables ───────────────────────────────────────── */
 :root {
-    --bg-primary:    #0d1b2a;
-    --bg-secondary:  #1b2838;
-    --bg-card:       #162232;
-    --bg-card-hover: #1c2d42;
-    --accent:        #2ec4b6;
-    --accent-dim:    #1a7a70;
-    --accent-glow:   rgba(46,196,182,0.12);
-    --text-primary:  #e0e6ed;
-    --text-secondary:#8899a6;
-    --text-muted:    #556677;
-    --success:       #2ecc71;
-    --warning:       #f39c12;
-    --danger:        #e74c3c;
-    --border:        rgba(46,196,182,0.12);
-    --radius:        12px;
-    --radius-sm:     8px;
-    --shadow:        0 4px 24px rgba(0,0,0,0.25);
+    --bg-primary:    #F4F7FE;
+    --bg-secondary:  #FFFFFF;
+    --bg-card:       #FFFFFF;
+    --bg-card-hover: #F0F3FF;
+    --accent:        #4318FF;
+    --accent-light:  #7551FF;
+    --accent-soft:   #E9E3FF;
+    --accent-glow:   rgba(67,24,255,0.10);
+    --text-primary:  #1B2559;
+    --text-secondary:#A3AED0;
+    --text-muted:    #B0BBD5;
+    --success:       #01B574;
+    --warning:       #FFB547;
+    --danger:        #E31A1A;
+    --border:        #E9EDF7;
+    --border-strong: #D6DCE9;
+    --radius:        16px;
+    --radius-sm:     10px;
+    --shadow:        0 4px 18px rgba(27,37,89,0.06);
+    --shadow-hover:  0 6px 24px rgba(67,24,255,0.10);
     --font-body:     'DM Sans', sans-serif;
     --font-mono:     'JetBrains Mono', monospace;
 }
 
-/* ── Global overrides ─────────────────────────────────────── */
-html, body, [data-testid="stAppViewContainer"] {
+/* ══════════════════════════════════════════════════════════
+   GLOBAL
+   ══════════════════════════════════════════════════════════ */
+html, body, [data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stBottomBlockContainer"],
+[data-testid="stMain"] {
     background-color: var(--bg-primary) !important;
     color: var(--text-primary) !important;
     font-family: var(--font-body) !important;
 }
 [data-testid="stHeader"] {
-    background-color: transparent !important;
+    background-color: var(--bg-primary) !important;
+}
+/* catch-all text */
+.stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown li,
+.stMarkdown strong, .stMarkdown em,
+[data-testid="stText"], [data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] p {
+    color: var(--text-primary) !important;
+}
+.stMarkdown a {
+    color: var(--accent) !important;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════════════════════════ */
 section[data-testid="stSidebar"] {
     background-color: var(--bg-secondary) !important;
     border-right: 1px solid var(--border) !important;
+    box-shadow: 2px 0 12px rgba(27,37,89,0.04);
+}
+section[data-testid="stSidebar"] * {
+    font-family: var(--font-body) !important;
 }
 section[data-testid="stSidebar"] .stMarkdown p,
 section[data-testid="stSidebar"] .stMarkdown span,
-section[data-testid="stSidebar"] label {
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stWidgetLabel p {
     color: var(--text-secondary) !important;
-    font-family: var(--font-body) !important;
 }
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
     color: var(--text-primary) !important;
-    font-family: var(--font-body) !important;
 }
+/* Sidebar inputs */
 section[data-testid="stSidebar"] .stSelectbox > div > div,
-section[data-testid="stSidebar"] .stNumberInput > div > div > input {
-    background-color: var(--bg-card) !important;
+section[data-testid="stSidebar"] .stNumberInput > div > div > input,
+section[data-testid="stSidebar"] .stTextInput > div > div > input {
+    background-color: var(--bg-primary) !important;
     border: 1px solid var(--border) !important;
     border-radius: var(--radius-sm) !important;
     color: var(--text-primary) !important;
 }
 
-/* ── Metric cards ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   ALL LABELS
+   ══════════════════════════════════════════════════════════ */
+.stWidgetLabel, .stWidgetLabel p, label,
+[data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   METRIC CARDS
+   ══════════════════════════════════════════════════════════ */
 [data-testid="stMetric"] {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 18px 20px 14px 20px;
+    padding: 20px 22px 16px 22px;
     box-shadow: var(--shadow);
-    transition: border-color 0.2s ease;
+    transition: all 0.25s ease;
 }
 [data-testid="stMetric"]:hover {
-    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--accent-soft);
 }
-[data-testid="stMetric"] label {
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] [data-testid="stMetricLabel"],
+[data-testid="stMetric"] [data-testid="stMetricLabel"] p {
     color: var(--text-secondary) !important;
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 500 !important;
@@ -114,33 +154,55 @@ section[data-testid="stSidebar"] .stNumberInput > div > div > input {
     font-weight: 700 !important;
     font-size: 1.55rem !important;
 }
+[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+    color: var(--success) !important;
+}
 
-/* ── Primary button ───────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════ */
 .stButton > button[kind="primary"],
 button[data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, var(--accent), var(--accent-dim)) !important;
-    color: #0d1b2a !important;
+    background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+    color: #FFFFFF !important;
     border: none !important;
     border-radius: var(--radius-sm) !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     font-family: var(--font-body) !important;
     letter-spacing: 0.03em;
     padding: 0.6rem 1.4rem !important;
-    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(67,24,255,0.25);
+    transition: all 0.25s ease;
 }
 .stButton > button[kind="primary"]:hover,
 button[data-testid="stBaseButton-primary"]:hover {
-    filter: brightness(1.12);
-    box-shadow: 0 0 20px var(--accent-glow);
+    box-shadow: 0 6px 22px rgba(67,24,255,0.35);
+    transform: translateY(-1px);
+}
+/* Secondary buttons */
+.stButton > button:not([kind="primary"]),
+button[data-testid="stBaseButton-secondary"] {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stButton > button:not([kind="primary"]):hover {
+    background: var(--bg-card-hover) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
 }
 
-/* ── Tabs ─────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   TABS
+   ══════════════════════════════════════════════════════════ */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0;
     background: var(--bg-secondary);
     border-radius: var(--radius);
     padding: 4px;
     border: 1px solid var(--border);
+    box-shadow: var(--shadow);
 }
 .stTabs [data-baseweb="tab"] {
     color: var(--text-secondary) !important;
@@ -148,71 +210,205 @@ button[data-testid="stBaseButton-primary"]:hover {
     font-weight: 500;
     border-radius: var(--radius-sm);
     padding: 10px 24px;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
 }
 .stTabs [aria-selected="true"] {
     background: var(--accent) !important;
-    color: var(--bg-primary) !important;
-    font-weight: 600;
+    color: #FFFFFF !important;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(67,24,255,0.25);
 }
-.stTabs [data-baseweb="tab-highlight"] {
-    display: none;
-}
+.stTabs [data-baseweb="tab-highlight"],
 .stTabs [data-baseweb="tab-border"] {
     display: none;
 }
 
-/* ── Dividers ─────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   DIVIDERS
+   ══════════════════════════════════════════════════════════ */
 hr {
     border-color: var(--border) !important;
     margin: 1.2rem 0 !important;
 }
 
-/* ── Info / warning boxes ─────────────────────────────────── */
-.stAlert {
+/* ══════════════════════════════════════════════════════════
+   ALERTS
+   ══════════════════════════════════════════════════════════ */
+.stAlert, [data-testid="stAlert"] {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
     border-radius: var(--radius-sm) !important;
-    color: var(--text-secondary) !important;
 }
-
-/* ── Dataframes / tables ──────────────────────────────────── */
-[data-testid="stTable"] table,
-[data-testid="stDataFrame"] {
-    background: var(--bg-card) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: var(--radius-sm) !important;
+.stAlert p, [data-testid="stAlert"] p,
+.stAlert span, [data-testid="stAlert"] span,
+.stAlert div, [data-testid="stAlert"] div {
     color: var(--text-primary) !important;
 }
+
+/* ══════════════════════════════════════════════════════════
+   TABLES & DATAFRAMES
+   ══════════════════════════════════════════════════════════ */
+[data-testid="stTable"] table {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
 [data-testid="stTable"] th {
-    background: var(--bg-secondary) !important;
+    background: var(--bg-primary) !important;
     color: var(--accent) !important;
     font-weight: 600 !important;
     text-transform: uppercase;
     font-size: 0.72rem !important;
     letter-spacing: 0.06em;
+    border-color: var(--border) !important;
 }
 [data-testid="stTable"] td {
     color: var(--text-primary) !important;
     border-color: var(--border) !important;
+    background: var(--bg-card) !important;
+}
+/* st.dataframe */
+[data-testid="stDataFrame"],
+[data-testid="stDataFrame"] > div {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
 }
 
-/* ── Slider ───────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   SELECTBOX / DROPDOWN
+   ══════════════════════════════════════════════════════════ */
+[data-baseweb="select"] > div {
+    background: var(--bg-card) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+[data-baseweb="select"] > div > div,
+[data-baseweb="select"] span,
+[data-baseweb="select"] input {
+    color: var(--text-primary) !important;
+}
+[data-baseweb="select"] svg {
+    fill: var(--text-secondary) !important;
+    color: var(--text-secondary) !important;
+}
+/* dropdown menu */
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 8px 32px rgba(27,37,89,0.12) !important;
+    border-radius: var(--radius-sm) !important;
+}
+[data-baseweb="popover"] ul,
+[data-baseweb="menu"] {
+    background: var(--bg-card) !important;
+}
+[data-baseweb="popover"] li,
+[data-baseweb="menu"] li,
+[role="option"] {
+    color: var(--text-primary) !important;
+    background: var(--bg-card) !important;
+}
+[data-baseweb="popover"] li:hover,
+[data-baseweb="menu"] li:hover,
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+    background: var(--accent-soft) !important;
+    color: var(--accent) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   NUMBER INPUT
+   ══════════════════════════════════════════════════════════ */
+.stNumberInput input {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stNumberInput button {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+.stNumberInput button:hover {
+    background: var(--accent-soft) !important;
+    color: var(--accent) !important;
+}
+.stNumberInput button svg {
+    fill: var(--text-secondary) !important;
+    stroke: var(--text-secondary) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TEXT INPUT
+   ══════════════════════════════════════════════════════════ */
+.stTextInput input, .stTextArea textarea {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SLIDER
+   ══════════════════════════════════════════════════════════ */
 .stSlider [data-baseweb="slider"] [role="slider"] {
     background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 2px 8px rgba(67,24,255,0.3);
 }
+/* filled track */
 .stSlider [data-baseweb="slider"] div[data-testid] > div {
-    background: var(--accent-dim) !important;
+    background: var(--accent-light) !important;
+}
+/* unfilled track */
+.stSlider [data-baseweb="slider"] > div > div {
+    background: var(--border) !important;
+}
+/* slider labels */
+.stSlider [data-testid="stThumbValue"],
+.stSlider div[data-testid="stTickBarMin"],
+.stSlider div[data-testid="stTickBarMax"] {
+    color: var(--text-secondary) !important;
 }
 
-/* ── Caption / markdown ───────────────────────────────────── */
-.stCaption, [data-testid="stCaptionContainer"] {
+/* ══════════════════════════════════════════════════════════
+   TOOLTIP
+   ══════════════════════════════════════════════════════════ */
+[data-testid="stTooltipIcon"] svg {
+    fill: var(--text-muted) !important;
     color: var(--text-muted) !important;
+}
+[data-testid="stTooltipContent"],
+[role="tooltip"] {
+    background: var(--text-primary) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: var(--radius-sm) !important;
+}
+[data-testid="stTooltipContent"] p,
+[role="tooltip"] p {
+    color: #FFFFFF !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CAPTIONS
+   ══════════════════════════════════════════════════════════ */
+.stCaption, [data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--text-secondary) !important;
     font-size: 0.8rem !important;
 }
 
-/* ── Headings ─────────────────────────────────────────────── */
-h1, h2, h3 {
+/* ══════════════════════════════════════════════════════════
+   HEADINGS
+   ══════════════════════════════════════════════════════════ */
+h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-body) !important;
     color: var(--text-primary) !important;
 }
@@ -220,44 +416,79 @@ h1 { font-weight: 700 !important; }
 h2 { font-weight: 600 !important; color: var(--accent) !important; }
 h3 { font-weight: 600 !important; }
 
-/* ── Selectbox / inputs ───────────────────────────────────── */
-[data-baseweb="select"] > div {
+/* ══════════════════════════════════════════════════════════
+   EXPANDER
+   ══════════════════════════════════════════════════════════ */
+[data-testid="stExpander"] {
     background: var(--bg-card) !important;
-    border-color: var(--border) !important;
+    border: 1px solid var(--border) !important;
     border-radius: var(--radius-sm) !important;
+    box-shadow: var(--shadow);
 }
-[data-baseweb="select"] span {
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary p {
     color: var(--text-primary) !important;
 }
-[data-baseweb="popover"] ul {
-    background: var(--bg-secondary) !important;
+[data-testid="stExpander"] svg {
+    fill: var(--text-secondary) !important;
+    color: var(--text-secondary) !important;
 }
-[data-baseweb="popover"] li {
+
+/* ══════════════════════════════════════════════════════════
+   CHECKBOX / RADIO
+   ══════════════════════════════════════════════════════════ */
+.stCheckbox label span,
+.stRadio label span,
+[data-testid="stCheckbox"] label span {
     color: var(--text-primary) !important;
 }
-[data-baseweb="popover"] li:hover {
-    background: var(--bg-card) !important;
+
+/* ══════════════════════════════════════════════════════════
+   SPINNER
+   ══════════════════════════════════════════════════════════ */
+.stSpinner > div,
+.stSpinner > div > span {
+    color: var(--accent) !important;
 }
 
-/* ── Spinner ──────────────────────────────────────────────── */
-.stSpinner > div { color: var(--accent) !important; }
+/* ══════════════════════════════════════════════════════════
+   PLOTLY MODEBAR
+   ══════════════════════════════════════════════════════════ */
+.js-plotly-plot .modebar-btn path {
+    fill: var(--text-muted) !important;
+}
+.js-plotly-plot .modebar-btn:hover path {
+    fill: var(--accent) !important;
+}
 
-/* ── Custom utility classes ───────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ══════════════════════════════════════════════════════════
+   CUSTOM UTILITY CLASSES
+   ══════════════════════════════════════════════════════════ */
 .hero-banner {
-    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0F3FF 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 28px 32px 22px;
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow);
 }
 .hero-banner::after {
     content: '';
     position: absolute;
-    top: -40px; right: -40px;
-    width: 160px; height: 160px;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    top: -50px; right: -50px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(67,24,255,0.06) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
 }
@@ -280,7 +511,7 @@ h3 { font-weight: 600 !important; }
 }
 .section-label {
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--accent);
@@ -299,24 +530,25 @@ h3 { font-weight: 600 !important; }
     font-size: 0.72rem;
     font-weight: 600;
     font-family: var(--font-mono);
-    color: white;
+    color: #ffffff;
 }
-.badge-current { background: #2980b9; }
-.badge-extra   { background: var(--accent-dim); }
-.badge-more    { font-size: 0.78rem; color: var(--text-muted); padding: 4px 0; }
+.badge-current { background: var(--accent); }
+.badge-extra   { background: var(--accent-light); }
+.badge-more    { font-size: 0.78rem; color: var(--text-secondary); padding: 4px 0; }
 
 .config-pill {
     display: inline-block;
-    background: var(--bg-card);
+    background: var(--accent-soft);
     border: 1px solid var(--border);
     border-radius: 20px;
     padding: 4px 14px;
     font-size: 0.78rem;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     margin-right: 8px;
+    margin-bottom: 4px;
     font-family: var(--font-mono);
 }
-.config-pill strong { color: var(--accent); font-weight: 600; }
+.config-pill strong { color: var(--accent); font-weight: 700; }
 </style>
 """
 
@@ -407,21 +639,21 @@ def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="DM Sans, sans-serif", color="#8899a6", size=12),
+    font=dict(family="DM Sans, sans-serif", color="#1B2559", size=12),
     margin=dict(l=10, r=10, t=30, b=10),
     showlegend=False,
     xaxis=dict(
         showgrid=False,
         zeroline=False,
-        color="#8899a6",
-        title_font=dict(size=11, color="#556677"),
+        color="#A3AED0",
+        title_font=dict(size=11, color="#A3AED0"),
     ),
     yaxis=dict(
         showgrid=True,
-        gridcolor="rgba(46,196,182,0.07)",
+        gridcolor="rgba(163,174,208,0.15)",
         zeroline=False,
-        color="#8899a6",
-        title_font=dict(size=11, color="#556677"),
+        color="#A3AED0",
+        title_font=dict(size=11, color="#A3AED0"),
     ),
 )
 
@@ -434,8 +666,8 @@ with st.sidebar:
     st.markdown(
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
         '<span style="font-size:1.7rem;">🛡️</span>'
-        '<span style="font-size:1.25rem;font-weight:700;color:#e0e6ed;letter-spacing:-0.02em;">'
-        'NoShow<span style="color:#2ec4b6;">Shield</span></span></div>',
+        '<span style="font-size:1.25rem;font-weight:700;color:#1B2559;letter-spacing:-0.02em;">'
+        'NoShow<span style="color:#4318FF;">Shield</span></span></div>',
         unsafe_allow_html=True,
     )
     st.caption("AI-Powered Revenue Protection")
@@ -542,11 +774,11 @@ with tab1:
             st.markdown(
                 '<div style="text-align:center;padding:60px 20px;">'
                 '<p style="font-size:3rem;margin-bottom:12px;">🛡️</p>'
-                '<p style="font-size:1.1rem;font-weight:600;color:#e0e6ed;margin-bottom:8px;">'
+                '<p style="font-size:1.1rem;font-weight:600;color:#1B2559;margin-bottom:8px;">'
                 'Ready to protect revenue</p>'
-                '<p style="font-size:0.88rem;color:#8899a6;max-width:400px;margin:0 auto;">'
+                '<p style="font-size:0.88rem;color:#A3AED0;max-width:400px;margin:0 auto;">'
                 'Set your relocation cost and risk threshold in the sidebar, '
-                'then click <strong style="color:#2ec4b6;">Get Recommendations</strong> to begin.'
+                'then click <strong style="color:#4318FF;">Get Recommendations</strong> to begin.'
                 '</p></div>',
                 unsafe_allow_html=True,
             )
@@ -677,9 +909,9 @@ with tab1:
             # ── Distribution chart ───────────────────────────────────
             x_vals = list(range(len(show_pmf)))
             bar_colors = [
-                "#2980b9" if k <= n_current
-                else "#2ec4b6" if k <= capacity
-                else "#e74c3c"
+                "#4318FF" if k <= n_current
+                else "#7551FF" if k <= capacity
+                else "#E31A1A"
                 for k in x_vals
             ]
 
@@ -692,10 +924,10 @@ with tab1:
             ))
             fig_dist.add_vline(
                 x=capacity + 0.5,
-                line_dash="dot", line_color="#e74c3c", line_width=2,
+                line_dash="dot", line_color="#E31A1A", line_width=2,
                 annotation_text=f"Capacity ({capacity})",
                 annotation_position="top left",
-                annotation_font=dict(color="#e74c3c", size=11),
+                annotation_font=dict(color="#E31A1A", size=11),
             )
             fig_dist.update_layout(
                 **PLOTLY_LAYOUT,
@@ -720,10 +952,10 @@ with tab1:
                 badges += '</div>'
 
                 st.markdown(
-                    '<p style="font-size:0.78rem;color:#556677;margin-bottom:2px;">'
+                    '<p style="font-size:0.78rem;color:#A3AED0;margin-bottom:2px;">'
                     'Individual show-up probabilities '
-                    '(<span style="color:#2980b9">● current</span> '
-                    '<span style="color:#2ec4b6">● extra</span>)</p>',
+                    '(<span style="color:#4318FF">● current</span> '
+                    '<span style="color:#7551FF">● extra</span>)</p>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(badges, unsafe_allow_html=True)
@@ -827,7 +1059,7 @@ with tab1:
                             x=plot_df["mean_abs_shap"].tolist(),
                             y=plot_df["feature"].tolist(),
                             orientation="h",
-                            marker_color="#2ec4b6",
+                            marker_color="#4318FF",
                             marker_line_width=0,
                         ))
                         fig_shap.update_layout(
@@ -860,9 +1092,9 @@ with tab2:
             st.markdown(
                 '<div style="text-align:center;padding:60px 20px;">'
                 '<p style="font-size:3rem;margin-bottom:12px;">🔎</p>'
-                '<p style="font-size:1.1rem;font-weight:600;color:#e0e6ed;margin-bottom:8px;">'
+                '<p style="font-size:1.1rem;font-weight:600;color:#1B2559;margin-bottom:8px;">'
                 'Inspect individual bookings</p>'
-                '<p style="font-size:0.88rem;color:#8899a6;max-width:420px;margin:0 auto;">'
+                '<p style="font-size:0.88rem;color:#A3AED0;max-width:420px;margin:0 auto;">'
                 'Load recommendations first, then switch to this tab to explore '
                 'the highest-risk bookings with per-feature SHAP explanations.'
                 '</p></div>',
@@ -976,7 +1208,7 @@ with tab2:
                         x=plot_df["shap_value"].tolist(),
                         y=plot_df["feature"].tolist(),
                         orientation="h",
-                        marker_color="#2ec4b6",
+                        marker_color="#4318FF",
                         marker_line_width=0,
                     ))
                     fig_local.update_layout(
