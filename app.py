@@ -373,7 +373,7 @@ with st.sidebar:
     max_risk = st.slider(
         "Max relocation risk",
         min_value=0.0, max_value=0.10, value=0.05, step=0.01,
-        format="%.0f%%",
+        format="%.1f%%",
         help="Maximum acceptable probability of having to relocate a guest.",
     )
     get_recs = st.button("Get Recommendations", type="primary", use_container_width=True)
