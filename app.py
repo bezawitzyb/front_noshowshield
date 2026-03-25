@@ -337,6 +337,8 @@ def api_post(url, payload, timeout=60, max_retries=2):
 # Sidebar — settings (always visible)
 # ------------------------------------------------------------------
 with st.sidebar:
+    selected_tab = st.selectbox("Navigation", ["📊 Booking Recommendations", "🔍 Single Booking Analysis"])
+
     st.markdown("### ⚙️ Optimization Settings")
 
     relocation_cost = st.number_input(
@@ -420,15 +422,12 @@ if "results" in st.session_state:
 
 
 # ------------------------------------------------------------------
-# TABS
+# MAIN CONTENT
 # ------------------------------------------------------------------
-tab1, tab2 = st.tabs(["📊 Booking Recommendations", "🔍 Single Booking Analysis"])
-
-
 # ==================================================================
-# TAB 1 — Recommendations Dashboard
+# BOOKING RECOMMENDATIONS
 # ==================================================================
-with tab1:
+if selected_tab == "📊 Booking Recommendations":
     if "results" not in st.session_state:
         st.markdown("""
         <div class="nss-page-header">
@@ -826,9 +825,9 @@ with tab1:
 
 
 # ==================================================================
-# TAB 2 — Single Booking Analysis
+# SINGLE BOOKING ANALYSIS
 # ==================================================================
-with tab2:
+else:
     st.markdown("""
     <div class="nss-page-header">
       <h1>Single Booking Prediction</h1>
