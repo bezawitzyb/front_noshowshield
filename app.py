@@ -960,12 +960,19 @@ with tab2:
             top_bookings_list = []
         else:
             top_bookings_list = top_result.get("top_3", [])
+            # Debug: print the structure of the first booking if available
+            if top_bookings_list:
+                st.write("Debug - First booking structure:", top_bookings_list[0])
 
         # Booking selector + export button in same row
         sel_col, btn_col = st.columns([5, 1])
         with sel_col:
             placeholder = "Select booking for prediction"
-            dropdown_labels = [placeholder] + [b["label"] for b in top_bookings_list]
+            try:
+                dropdown_labels = [placeholder] + [b.get("label", f"Booking {i+1}") for i, b in enumerate(top_bookings_list)]
+            except Exception as e:
+                st.error(f"Error creating dropdown labels: {e}")
+                dropdown_labels = [placeholder]
             selected_label = st.selectbox(
                 "Analyse high-risk booking",
                 options=dropdown_labels,
