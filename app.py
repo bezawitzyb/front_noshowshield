@@ -363,8 +363,6 @@ def api_post(url, payload, timeout=60, max_retries=2):
 # Sidebar — settings (always visible)
 # ------------------------------------------------------------------
 with st.sidebar:
-    selected_tab = st.radio("Navigation", ["Booking Recommendations", "Single Booking Analysis"])
-
     st.markdown("### <i class='fas fa-sliders-h'></i> Optimization Settings", unsafe_allow_html=True)
 
     relocation_cost = st.number_input(
@@ -451,7 +449,7 @@ if "results" in st.session_state:
 # MAIN CONTENT
 # ------------------------------------------------------------------
 st.markdown("""
-<div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
+<div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:8px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
   <div style="display:flex; align-items:center; gap:12px;">
     <i class="fas fa-shield-alt" style="color:#5DA6D4; font-size:22px;"></i>
     <div>
@@ -460,12 +458,21 @@ st.markdown("""
     </div>
   </div>
 </div>
+<div style="background:#FFFFFF; border:1px solid #D1D9E0; border-radius:10px; padding:14px 18px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);">
+  <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+    NoShowShield uses machine learning to predict booking cancellations and recommend optimal overbooking levels: maximising hotel revenue while keeping guest relocation risk below a configurable threshold.
+    Select a date and room type to see actionable recommendations backed by SHAP explainability.
+  </p>
+</div>
 """, unsafe_allow_html=True)
 
 # ==================================================================
-# BOOKING RECOMMENDATIONS
+# BOOKING RECOMMENDATIONS / SINGLE BOOKING ANALYSIS
 # ==================================================================
-if selected_tab == "Booking Recommendations":
+# Move the tab selectors under the narrative block
+tab1, tab2 = st.tabs(["Booking Recommendations", "Single Booking Analysis"])
+
+with tab1:
     if "results" not in st.session_state:
         st.markdown("""
         <div class="nss-page-header">
@@ -865,7 +872,7 @@ if selected_tab == "Booking Recommendations":
 # ==================================================================
 # SINGLE BOOKING ANALYSIS
 # ==================================================================
-else:
+with tab2:
     st.markdown("""
     <div class="nss-page-header">
       <h1><i class="fas fa-search"></i> Single Booking Prediction</h1>
