@@ -315,13 +315,10 @@ st.markdown(f"""
   }}
 
   /* ---- Remove top padding from main content ---- */
-  .stApp {{
+  .stApp > .main {{
     padding-top: 0 !important;
   }}
-  .main {{
-    padding-top: 0 !important;
-  }}
-  [data-testid="stAppViewContainer"] {{
+  .stApp > .main > [role="main"] {{
     padding-top: 0 !important;
   }}
 
@@ -960,19 +957,12 @@ with tab2:
             top_bookings_list = []
         else:
             top_bookings_list = top_result.get("top_3", [])
-            # Debug: print the structure of the first booking if available
-            if top_bookings_list:
-                st.write("Debug - First booking structure:", top_bookings_list[0])
 
         # Booking selector + export button in same row
         sel_col, btn_col = st.columns([5, 1])
         with sel_col:
             placeholder = "Select booking for prediction"
-            try:
-                dropdown_labels = [placeholder] + [b.get("label", f"Booking {i+1}") for i, b in enumerate(top_bookings_list)]
-            except Exception as e:
-                st.error(f"Error creating dropdown labels: {e}")
-                dropdown_labels = [placeholder]
+            dropdown_labels = [placeholder] + [b["label"] for b in top_bookings_list]
             selected_label = st.selectbox(
                 "Analyse high-risk booking",
                 options=dropdown_labels,
@@ -984,26 +974,16 @@ with tab2:
             export_clicked = st.button("⬇ Export", use_container_width=True, disabled=True)
 
         if selected_label != placeholder and top_bookings_list:
-            # Map selection back to booking entry using index because booking payload may not have label
-            selected_idx = None
-            for i, b in enumerate(top_bookings_list):
-                label = b.get("label") or f"Booking {i+1}"
-                if label == selected_label:
-                    selected_idx = i
-                    break
-            if selected_idx is None:
-                st.error("Selected booking could not be resolved. Please refresh and try again.")
-            else:
-                selected_entry = top_bookings_list[selected_idx]
-                cache_key = f"explain_{selected_hotel}_{selected_date}_{selected_room}_{selected_idx}"
+            selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
+            cache_key = f"explain_{selected_hotel}_{selected_date}_{selected_room}_{selected_entry['rank']}"
 
-                if cache_key not in st.session_state:
-                    with st.spinner("Running prediction and SHAP explanation …"):
-                        explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
-                    if "error" in explain_result:
-                        st.error(explain_result["error"])
-                    else:
-                        st.session_state[cache_key] = explain_result
+            if cache_key not in st.session_state:
+                with st.spinner("Running prediction and SHAP explanation …"):
+                    explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
+                if "error" in explain_result:
+                    st.error(explain_result["error"])
+                else:
+                    st.session_state[cache_key] = explain_result
 
             if cache_key in st.session_state:
                 st.session_state["single_booking"] = selected_entry["booking"]
@@ -1146,7 +1126,7 @@ with tab2:
             st.markdown(f"""
             <div class="action-bar">
               <div>
-                <div class="ab-text"><i class="fas fa-shield-alt"></i> Ready to take action?</div>
+                <div class="ab-text">🛡️ Ready to take action?</div>
                 <div class="ab-sub">Use the option to optimise booking strategy or contact the guest.</div>
               </div>
               <div style="display:flex;gap:10px;">
@@ -1155,7 +1135,7 @@ with tab2:
                   Ignore Prediction
                 </button>
                 <button style="padding:8px 18px;border-radius:8px;border:none;
-                  background:{CLR_GREEN_POS};color:white;font-size:13px;font-weight:600;cursor:pointer;">
+                  background:{CLR_RED_RISK};color:white;font-size:13px;font-weight:600;cursor:pointer;">
                   Apply Booking Strategy
                 </button>
               </div>
@@ -1168,8 +1148,8 @@ with tab2:
 st.markdown(f"""
 <div style="text-align:center;padding:24px 0 12px;font-size:12px;color:{CLR_TEXT_MUT};border-top:0.5px solid #E2E8F0;margin-top:32px;">
   © 2024 NoShowShield Intelligence. All rights reserved. &nbsp;·&nbsp;
-  <span style="color:{CLR_BLUE};">Support</span> &nbsp;·&nbsp;
-  <span style="color:{CLR_BLUE};">Privacy Policy</span> &nbsp;·&nbsp;
-  <a href="https://github.com/bezawitzyb/noshowshield" style="color:{CLR_BLUE};text-decoration:none;">Documentation</a>
+  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Support</a> &nbsp;·&nbsp;
+  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Privacy Policy</a> &nbsp;·&nbsp;
+  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Documentation</a>
 </div>
 """, unsafe_allow_html=True)
