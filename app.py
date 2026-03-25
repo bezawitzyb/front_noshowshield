@@ -1126,7 +1126,7 @@ with tab2:
             st.markdown(f"""
             <div class="action-bar">
               <div>
-                <div class="ab-text">🛡️ Ready to take action?</div>
+                <div class="ab-text"><i class="fas fa-shield-alt"></i> Ready to take action?</div>
                 <div class="ab-sub">Use the option to optimise booking strategy or contact the guest.</div>
               </div>
               <div style="display:flex;gap:10px;">
@@ -1135,7 +1135,7 @@ with tab2:
                   Ignore Prediction
                 </button>
                 <button style="padding:8px 18px;border-radius:8px;border:none;
-                  background:{CLR_RED_RISK};color:white;font-size:13px;font-weight:600;cursor:pointer;">
+                  background:{CLR_GREEN_POS};color:white;font-size:13px;font-weight:600;cursor:pointer;">
                   Apply Booking Strategy
                 </button>
               </div>
@@ -1148,8 +1148,8 @@ with tab2:
 st.markdown(f"""
 <div style="text-align:center;padding:24px 0 12px;font-size:12px;color:{CLR_TEXT_MUT};border-top:0.5px solid #E2E8F0;margin-top:32px;">
   © 2024 NoShowShield Intelligence. All rights reserved. &nbsp;·&nbsp;
-  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Support</a> &nbsp;·&nbsp;
-  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Privacy Policy</a> &nbsp;·&nbsp;
-  <a href="#" style="color:{CLR_BLUE};text-decoration:none;">Documentation</a>
+  <span style="color:#94A3B8; text-decoration:none; cursor:not-allowed;">Support</span> &nbsp;·&nbsp;
+  <span style="color:#94A3B8; text-decoration:none; cursor:not-allowed;">Privacy Policy</span> &nbsp;·&nbsp;
+  <a href="https://github.com/bezawitzyb/noshowshield" style="color:{CLR_BLUE};text-decoration:none;">Documentation</a>
 </div>
 """, unsafe_allow_html=True)
