@@ -252,7 +252,7 @@ st.markdown(f"""
 
   /* ---- Sidebar background ---- */
   .stSidebar {{
-    background-color: #BDC9E1 !important;
+    background-color: #b2c5eb !important;
   }}
 
   /* ---- Sidebar tabs ---- */
@@ -284,14 +284,16 @@ st.markdown(f"""
     color: {CLR_TEXT_MUT};
     border-bottom: 2px solid transparent;
     transition: all 0.2s ease;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 16px;
   }}
   [role="tablist"] button[role="tab"]:hover {{
     color: {CLR_BLUE};
   }}
   [role="tablist"] button[role="tab"][aria-selected="true"] {{
-    color: #FFFFFF;
-    border-bottom: 2px solid #000000;
-    background: #537BB2;
+    color: #7CC5C3;
+    border-bottom: 2px solid #7CC5C3;
+    background: #FFFFFF;
     font-weight: 700;
   }}
 
