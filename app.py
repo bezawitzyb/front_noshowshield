@@ -247,6 +247,30 @@ st.markdown(f"""
 
   /* ---- Divider ---- */
   hr {{ border: none; border-top: 1px solid #E2E8F0; margin: 20px 0; }}
+
+  /* ---- Sidebar tabs ---- */
+  .stSidebar .stRadio label {{
+    display: block;
+    padding: 12px 16px;
+    margin: 4px 0;
+    background: {CLR_PAGE_BG};
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    font-weight: 500;
+  }}
+  .stSidebar .stRadio label:hover {{
+    background: {CLR_CARD_BLUE};
+    border-color: {CLR_BLUE};
+  }}
+  .stSidebar .stRadio input[type="radio"]:checked + label {{
+    background: {CLR_CARD_BLUE};
+    border-color: {CLR_BLUE};
+    color: {CLR_TEXT_PRI};
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -337,7 +361,7 @@ def api_post(url, payload, timeout=60, max_retries=2):
 # Sidebar — settings (always visible)
 # ------------------------------------------------------------------
 with st.sidebar:
-    selected_tab = st.selectbox("Navigation", ["📊 Booking Recommendations", "🔍 Single Booking Analysis"])
+    selected_tab = st.radio("Navigation", ["📊 Booking Recommendations", "🔍 Single Booking Analysis"])
 
     st.markdown("### ⚙️ Optimization Settings")
 
