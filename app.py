@@ -36,8 +36,8 @@ CLR_BLUE          = "#5DA9B2"
 CLR_GREEN_POS     = "#73B09D"
 CLR_RED_RISK      = "#E57373"
 # Chart bars — 3 colours using primary blue family
-CLR_BAR_BELOW     = "#60A5FA"   # below current bookings
-CLR_BAR_SAFE      = "#5DA6D4"   # current → capacity
+CLR_BAR_BELOW     = "#7EABD1"   # below current bookings
+CLR_BAR_SAFE      = "#7CC5C3"   # current → capacity
 CLR_BAR_RISK      = "#E57373"   # over capacity
 # Sidebar model info
 CLR_MODEL_BG      = "#EAF2F9"
@@ -319,6 +319,11 @@ st.markdown(f"""
   }}
   .stApp > .main > [role="main"] {{
     padding-top: 0 !important;
+  }}
+
+  /* ---- Selectbox background ---- */
+  select {{
+    background-color: white !important;
   }}
 </style>
 """, unsafe_allow_html=True)
@@ -667,16 +672,12 @@ with tab1:
                               row["expected_cancellations"] / row["total_bookings"])
             cancel_probs_arr = np.full(n_current, float(mean_cp))
 
-        st.markdown('<div class="nss-card" style="background-color: white;">', unsafe_allow_html=True)
-
         n_simulate = st.slider(
             "Booking Simulations",
             min_value=0,
             max_value=recommended_total,
             value=recommended_total,
         )
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
         # Compute PMF
         if n_simulate == 0:
@@ -760,10 +761,10 @@ with tab1:
             current_pcts = show_pcts[:min(n_simulate, n_current)]
             extra_pcts = show_pcts[n_current:] if n_simulate > n_current else []
 
-            display_limit = 15
+            display_limit = 30
             badges = ""
             for i, pct in enumerate(show_pcts[:display_limit]):
-                color = "#3498db" if i < n_current else "#2ecc71"
+                color = CLR_BAR_BELOW if i < n_current else CLR_BAR_SAFE if i < capacity else CLR_BAR_RISK
                 badges += (
                     f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
                     f'border-radius:12px;background:{color};color:white;'
@@ -775,8 +776,9 @@ with tab1:
 
             st.markdown(
                 f"Individual show-up probabilities % "
-                f"(<span style='color:#3498db'>■</span> Current "
-                f"<span style='color:#2ecc71'>■</span> Extra)",
+                f"(<span style='color:{CLR_BAR_BELOW}'>■</span> Below Current "
+                f"<span style='color:{CLR_BAR_SAFE}'>■</span> Safe "
+                f"<span style='color:{CLR_BAR_RISK}'>■</span> Risk)",
                 unsafe_allow_html=True,
             )
             st.markdown(badges, unsafe_allow_html=True)
@@ -840,8 +842,8 @@ with tab1:
                             val = r[col]
                             if col == "Cancel Risk":
                                 raw = float(str(val).replace("%", ""))
-                                pill_cls = "risk-high" if raw >= 50 else "risk-med" if raw >= 25 else "risk-low"
-                                cell = f'<span class="risk-pill {pill_cls}">{raw:.1f}% ↑</span>'
+                                pill_cls = "risk-high" if raw >= 70 else "risk-med" if raw >= 50 else "risk-low"
+                                cell = f'<span class="risk-pill {pill_cls}">{raw:.2f}% ↑</span>'
                             else:
                                 cell = str(val)
                             table_html += f'<td style="padding:8px 4px;font-size:13px;">{cell}</td>'
@@ -894,7 +896,7 @@ with tab1:
                         x=plot_df["mean_abs_shap"].tolist(),
                         y=plot_df["feature"].tolist(),
                         orientation="h",
-                        marker_color=CLR_BLUE,
+                        marker_color=CLR_BAR_BELOW,
                     ))
                     fig_shap.update_layout(
                         height=320,
@@ -972,7 +974,7 @@ with tab2:
                 st.session_state["single_explain"] = st.session_state[cache_key]
 
         if "single_booking" not in st.session_state:
-            st.info("Select a booking above to load its prediction.")
+            pass
         else:
             booking    = st.session_state["single_booking"]
             actual     = st.session_state["single_actual"]
