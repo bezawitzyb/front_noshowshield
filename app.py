@@ -18,29 +18,29 @@ import plotly.graph_objects as go
 # Theme / color constants
 # ------------------------------------------------------------------
 # Page background
-CLR_PAGE_BG       = "#F0F4F8"
+CLR_PAGE_BG       = "#F4F7FA"
 # Card fills — row 1 (top metrics)
-CLR_CARD_BLUE     = "#DBEAFE"   # Capacity, Confirmed Bookings
-CLR_CARD_GREEN    = "#D1FAE5"   # Expected Show-ups
+CLR_CARD_BLUE     = "#DBEAF5"   # Capacity, Confirmed Bookings
+CLR_CARD_GREEN    = "#DCF2E9"   # Expected Show-ups
 CLR_CARD_RED      = "#FEE2E2"   # Relocation Risk / Cost
-CLR_CARD_AMBER    = "#FEF3C7"   # Rec. Extra Bookings
+CLR_CARD_AMBER    = "#FCE9D5"   # Rec. Extra Bookings
 # Card fills — row 2 (financial / risk metrics)
-CLR_CARD_YELLOW   = "#FEF9C3"   # Current Revenue
+CLR_CARD_YELLOW   = "#E5E7EB"   # Current Revenue
 CLR_CARD_RED2     = "#FEE2E2"   # Relocation Risk (shared)
-CLR_CARD_PINK     = "#FCE7F3"   # Relocation Cost
-CLR_CARD_SOFTGRN  = "#F0FDF4"   # Net Benefit
+CLR_CARD_PINK     = "#FFFFFF"   # Relocation Cost (white card, update if needed)
+CLR_CARD_SOFTGRN  = "#DCF2E9"   # Net Benefit
 # Text / accent
 CLR_TEXT_PRI      = "#1E293B"
 CLR_TEXT_MUT      = "#64748B"
-CLR_BLUE          = "#3B82F6"
-CLR_GREEN_POS     = "#059669"
-CLR_RED_RISK      = "#DC2626"
+CLR_BLUE          = "#5DA6D4"
+CLR_GREEN_POS     = "#73B09D"
+CLR_RED_RISK      = "#E57373"
 # Chart bars — 3 colours using primary blue family
-CLR_BAR_BELOW     = "#93C5FD"   # below current bookings (light blue)
-CLR_BAR_SAFE      = "#3B82F6"   # current → capacity (primary blue)
-CLR_BAR_RISK      = "#EF4444"   # over capacity (red)
+CLR_BAR_BELOW     = "#60A5FA"   # below current bookings
+CLR_BAR_SAFE      = "#5DA6D4"   # current → capacity
+CLR_BAR_RISK      = "#E57373"   # over capacity
 # Sidebar model info
-CLR_MODEL_BG      = "#EFF6FF"
+CLR_MODEL_BG      = "#EAF2F9"
 
 
 # ------------------------------------------------------------------
