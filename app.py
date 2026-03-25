@@ -466,27 +466,6 @@ if "results" in st.session_state:
         """, unsafe_allow_html=True)
 
 
-# ------------------------------------------------------------------
-# MAIN CONTENT
-# ------------------------------------------------------------------
-st.markdown("""
-<div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:8px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
-  <div style="display:flex; align-items:center; gap:12px;">
-    <i class="fas fa-shield-alt" style="color:#5DA6D4; font-size:22px;"></i>
-    <div>
-      <div style="font-size:20px; font-weight:800; color:#1E293B; line-height:1;">NoShowShield</div>
-      <div style="font-size:13px; color:#64748B; margin-top:2px;">Revenue Protection Intelligence</div>
-    </div>
-  </div>
-</div>
-<div style="background:#FFFFFF; border:1px solid #D1D9E0; border-radius:10px; padding:14px 18px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);">
-  <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
-    NoShowShield uses machine learning to predict booking cancellations and recommend optimal overbooking levels: maximising hotel revenue while keeping guest relocation risk below a configurable threshold.
-    Select a date and room type to see actionable recommendations backed by SHAP explainability.
-  </p>
-</div>
-""", unsafe_allow_html=True)
-
 # ==================================================================
 # BOOKING RECOMMENDATIONS / SINGLE BOOKING ANALYSIS
 # ==================================================================
