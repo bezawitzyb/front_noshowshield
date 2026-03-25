@@ -250,6 +250,11 @@ st.markdown(f"""
   /* ---- Divider ---- */
   hr {{ border: none; border-top: 1px solid #E2E8F0; margin: 20px 0; }}
 
+  /* ---- Sidebar background ---- */
+  .stSidebar {{
+    background-color: #F1F5F9 !important;
+  }}
+
   /* ---- Sidebar tabs ---- */
   .stSidebar .stRadio label {{
     display: block;
@@ -394,7 +399,6 @@ with st.sidebar:
     max_risk = st.slider(
         "Max relocation risk",
         min_value=0.0, max_value=0.10, value=0.05, step=0.01,
-        format="%.2f%%",
         help="Maximum acceptable probability of having to relocate a guest.",
     )
     get_recs = st.button("Get Recommendations", type="primary", use_container_width=True)
