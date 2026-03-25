@@ -70,6 +70,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">', unsafe_allow_html=True)
+
 st.markdown(f"""
 <style>
   /* ---- Page background ---- */
@@ -284,7 +286,7 @@ def card_html(bg_color, icon, label, value, sub="", badge_text="", badge_color="
         badge = f'<span class="card-badge" style="background:{badge_color};color:{CLR_TEXT_MUT};">{badge_text}</span>'
     return f"""
     <div class="nss-card" style="background:{bg_color};">
-      <span class="card-icon">{icon}</span>
+      <span class="card-icon"><i class="fas {icon}"></i></span>
       <div class="card-label">{label}</div>
       <div class="card-value">{value}</div>
       {"<div class='card-sub'>" + sub + "</div>" if sub else ""}
@@ -361,9 +363,9 @@ def api_post(url, payload, timeout=60, max_retries=2):
 # Sidebar — settings (always visible)
 # ------------------------------------------------------------------
 with st.sidebar:
-    selected_tab = st.radio("Navigation", ["📊 Booking Recommendations", "🔍 Single Booking Analysis"])
+    selected_tab = st.radio("Navigation", ["Booking Recommendations", "Single Booking Analysis"])
 
-    st.markdown("### ⚙️ Optimization Settings")
+    st.markdown("### <i class='fas fa-cog'></i> Optimization Settings")
 
     relocation_cost = st.number_input(
         "Relocation cost (€)",
@@ -403,7 +405,7 @@ if "results" in st.session_state:
     model_info = results["model_info"]
 
     with st.sidebar:
-        st.markdown("### 🔍 Filters")
+        st.markdown("### <i class='fas fa-filter'></i> Filters")
         available_hotels = sorted(recs["hotel"].unique())
         selected_hotel = st.selectbox("Hotel", available_hotels)
 
@@ -435,7 +437,7 @@ if "results" in st.session_state:
 
         st.markdown(f"""
         <div class="model-box">
-          <div class="mb-version">🤖 Model {model_version}</div>
+          <div class="mb-version"><i class="fas fa-robot"></i> Model {model_version}</div>
           <div class="mb-row"><span class="mb-key">Accuracy</span><span class="mb-val">{fmt_metric(acc)}</span></div>
           <div class="mb-row"><span class="mb-key">F1 Score</span><span class="mb-val">{fmt_metric(f1)}</span></div>
           <div class="mb-row"><span class="mb-key">AUC</span><span class="mb-val">{fmt_metric(auc)}</span></div>
@@ -451,11 +453,11 @@ if "results" in st.session_state:
 # ==================================================================
 # BOOKING RECOMMENDATIONS
 # ==================================================================
-if selected_tab == "📊 Booking Recommendations":
+if selected_tab == "Booking Recommendations":
     if "results" not in st.session_state:
         st.markdown("""
         <div class="nss-page-header">
-          <h1>🛡️ NoShowShield</h1>
+          <h1><i class="fas fa-shield-alt"></i> NoShowShield</h1>
           <p>Revenue Protection Intelligence — adjust settings in the sidebar and click <b>Get Recommendations</b> to start.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -498,14 +500,14 @@ if selected_tab == "📊 Booking Recommendations":
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.markdown(card_html(
-                CLR_CARD_BLUE, "🏨",
+                CLR_CARD_BLUE, "fa-building",
                 "Physical Capacity",
                 str(capacity),
                 "Maximum rooms available."
             ), unsafe_allow_html=True)
         with c2:
             st.markdown(card_html(
-                CLR_CARD_BLUE, "📋",
+                CLR_CARD_BLUE, "fa-clipboard-list",
                 "Confirmed Bookings",
                 str(total_bookings),
                 "Current total bookings in the PMS.",
@@ -515,7 +517,7 @@ if selected_tab == "📊 Booking Recommendations":
         with c3:
             std_cancel = float(row.get("std_cancellations", 0))
             st.markdown(card_html(
-                CLR_CARD_GREEN, "✅",
+                CLR_CARD_GREEN, "fa-check-circle",
                 "Expected Use-Shows",
                 f"{expected_showup:.1f}",
                 f"All predicted arrivals based on optimised cancel corrections.",
@@ -524,7 +526,7 @@ if selected_tab == "📊 Booking Recommendations":
             ), unsafe_allow_html=True)
         with c4:
             st.markdown(card_html(
-                CLR_CARD_AMBER, "➕",
+                CLR_CARD_AMBER, "fa-plus",
                 "Rec. Extra Bookings",
                 f"+{rec_extra}",
                 "Desired overbooking to maximise revenue safety."
@@ -536,7 +538,7 @@ if selected_tab == "📊 Booking Recommendations":
         c5, c6, c7, c8 = st.columns(4)
         with c5:
             st.markdown(card_html(
-                CLR_CARD_YELLOW, "€",
+                CLR_CARD_YELLOW, "fa-euro-sign",
                 "Current Revenue",
                 f"€{current_revenue:,.0f}",
                 "Approximate baseline revenue ex tax."
@@ -544,21 +546,21 @@ if selected_tab == "📊 Booking Recommendations":
         with c6:
             risk_pct = reloc_prob * 100
             st.markdown(card_html(
-                CLR_CARD_RED2, "⚠️",
+                CLR_CARD_RED2, "fa-exclamation-triangle",
                 "Relocation Risk",
                 f"{risk_pct:.2f}%",
                 "Probability of exceeding physical capacity."
             ), unsafe_allow_html=True)
         with c7:
             st.markdown(card_html(
-                CLR_CARD_PINK, "€",
+                CLR_CARD_PINK, "fa-euro-sign",
                 "Relocation Cost",
                 f"€{reloc_cost_val:.0f}",
                 "Risk-adjusted relocation cost."
             ), unsafe_allow_html=True)
         with c8:
             st.markdown(card_html(
-                CLR_CARD_SOFTGRN, "📈",
+                CLR_CARD_SOFTGRN, "fa-chart-line",
                 "Predicted Net Benefit",
                 f"€{net_benefit:,.0f}",
                 "Additional revenue minus relocation cost."
@@ -696,7 +698,7 @@ if selected_tab == "📊 Booking Recommendations":
         # ---- Individual show-up probability pills ----
         if n_simulate > 0 and len(indiv_show) > 0:
             st.markdown(
-                '<div class="nss-section-sub" style="margin-top:0;">⚡ Individual show-up probability</div>',
+                '<div class="nss-section-sub" style="margin-top:0;"><i class="fas fa-bolt"></i> Individual show-up probability</div>',
                 unsafe_allow_html=True,
             )
             show_pcts = (indiv_show * 100).astype(int).tolist()
@@ -854,7 +856,7 @@ if selected_tab == "📊 Booking Recommendations":
 else:
     st.markdown("""
     <div class="nss-page-header">
-      <h1>Single Booking Prediction</h1>
+      <h1><i class="fas fa-search"></i> Single Booking Prediction</h1>
       <p>Select a high-risk booking to analyse the underlying patterns detected by our AI model.
          Use SHAP values to understand specific cancellation drivers.</p>
     </div>
