@@ -450,6 +450,18 @@ if "results" in st.session_state:
 # ------------------------------------------------------------------
 # MAIN CONTENT
 # ------------------------------------------------------------------
+st.markdown("""
+<div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <i class="fas fa-shield-alt" style="color:#5DA6D4; font-size:22px;"></i>
+    <div>
+      <div style="font-size:20px; font-weight:800; color:#1E293B; line-height:1;">NoShowShield</div>
+      <div style="font-size:13px; color:#64748B; margin-top:2px;">Revenue Protection Intelligence</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==================================================================
 # BOOKING RECOMMENDATIONS
 # ==================================================================
