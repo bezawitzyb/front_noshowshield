@@ -289,9 +289,10 @@ st.markdown(f"""
     color: {CLR_BLUE};
   }}
   [role="tablist"] button[role="tab"][aria-selected="true"] {{
-    color: {CLR_BLUE};
-    border-bottom: 2px solid {CLR_BLUE};
-    background: #E0F2FE;
+    color: #FFFFFF;
+    border-bottom: 2px solid #000000;
+    background: #537BB2;
+    font-weight: 700;
   }}
 
   /* ---- Primary Button (Get Recommendations) ---- */
@@ -308,6 +309,14 @@ st.markdown(f"""
   button[kind="primary"]:active {{
     filter: brightness(0.95);
   }}
+
+  /* ---- Remove top padding from main content ---- */
+  .stApp > .main {{
+    padding-top: 0 !important;
+  }}
+  .stApp > .main > [role="main"] {{
+    padding-top: 0 !important;
+  }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -318,18 +327,15 @@ st.markdown("""
 <div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:8px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
   <div style="display:flex; align-items:center; gap:12px;">
     <i class="fas fa-shield-alt" style="color:#5DA6D4; font-size:22px;"></i>
-    <div>
-      <div style="font-size:20px; font-weight:800; color:#1E293B; line-height:1;">NoShowShield</div>
-      <div style="font-size:13px; color:#64748B; margin-top:2px;">Revenue Protection Intelligence</div>
-    </div>
+    <div style="font-size:20px; font-weight:800; color:#1E293B; line-height:1;">NoShowShield</div>
+    <div style="width:1px; height:20px; background:#D1D9E0; margin:0 12px;"></div>
+    <div style="font-size:13px; color:#64748B;">Revenue Protection Intelligence</div>
   </div>
 </div>
-<div style="background:#FFFFFF; border:1px solid #D1D9E0; border-radius:10px; padding:14px 18px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);">
-  <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
-    NoShowShield uses machine learning to predict booking cancellations and recommend optimal overbooking levels: maximising hotel revenue while keeping guest relocation risk below a configurable threshold.
-    Select a date and room type to see actionable recommendations backed by SHAP explainability.
-  </p>
-</div>
+<p style="margin:0 0 18px 0; font-size:13px; color:#334155; line-height:1.5;">
+  NoShowShield uses machine learning to predict booking cancellations and recommend optimal overbooking levels: maximising hotel revenue while keeping guest relocation risk below a configurable threshold.
+  Select a date and room type to see actionable recommendations backed by SHAP explainability.
+</p>
 """, unsafe_allow_html=True)
 
 
