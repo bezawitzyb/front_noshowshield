@@ -843,8 +843,8 @@ with tab1:
                             val = r[col]
                             if col == "Cancel Risk":
                                 raw = float(str(val).replace("%", ""))
-                                pill_cls = "risk-high" if raw >= 70 else "risk-med" if raw >= 50 else "risk-low"
-                                cell = f'<span class="risk-pill {pill_cls}">{raw:.2f}% ↑</span>'
+                                pill_cls = "risk-high" if raw >= .70 else "risk-med" if raw >= .50 else "risk-low"
+                                cell = f'<span class="risk-pill {pill_cls}">{raw:.2f}</span>'
                             else:
                                 cell = str(val)
                             table_html += f'<td style="padding:8px 4px;font-size:13px;">{cell}</td>'
