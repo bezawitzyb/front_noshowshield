@@ -530,7 +530,7 @@ with tab1:
     # Page header
     st.markdown(f"""
     <h1>Booking Recommendations</h1>
-    <p>Optimize your inventory for <b>{selected_date}</b> · Room Type: <b>{selected_room}</b></p>
+    <p>Optimize your booking strategy for | Date : <b>{selected_date}</b> - Room Type: <b>{selected_room}</b></p>
     """, unsafe_allow_html=True)
 
     if filtered.empty:
@@ -555,7 +555,7 @@ with tab1:
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.markdown(card_html(
-                CLR_CARD_BLUE, "fa-building",
+                CLR_CARD_YELLOW, "fa-building",
                 "Physical Capacity",
                 str(capacity),
                 "Maximum rooms available."
@@ -565,7 +565,7 @@ with tab1:
                 CLR_CARD_BLUE, "fa-clipboard-list",
                 "Confirmed Bookings",
                 str(total_bookings),
-                "Current total bookings in the PMS.",
+                "Current total bookings.",
                 badge_text=f"{occupancy_pct} Occ",
                 badge_color="#BFDBFE",
             ), unsafe_allow_html=True)
@@ -573,9 +573,9 @@ with tab1:
             std_cancel = float(row.get("std_cancellations", 0))
             st.markdown(card_html(
                 CLR_CARD_GREEN, "fa-check-circle",
-                "Expected Use-Shows",
+                "Expected Show-ups",
                 f"{expected_showup:.1f}",
-                f"All predicted arrivals based on optimised cancel corrections.",
+                f"All predicted arrivals.",
                 badge_text=f"±{std_cancel:.1f} std dev",
                 badge_color="#A7F3D0",
             ), unsafe_allow_html=True)
@@ -584,7 +584,7 @@ with tab1:
                 CLR_CARD_AMBER, "fa-plus",
                 "Rec. Extra Bookings",
                 f"+{rec_extra}",
-                "Desired overbooking to maximise revenue safety."
+                "Desired booking to maximise revenue safety."
             ), unsafe_allow_html=True)
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
@@ -596,7 +596,7 @@ with tab1:
                 CLR_CARD_YELLOW, "fa-euro-sign",
                 "Current Revenue",
                 f"€{current_revenue:,.0f}",
-                "Approximate baseline revenue ex tax."
+                "Baseline revenue from current bookings."
             ), unsafe_allow_html=True)
         with c6:
             risk_pct = reloc_prob * 100
@@ -608,8 +608,8 @@ with tab1:
             ), unsafe_allow_html=True)
         with c7:
             st.markdown(card_html(
-                CLR_CARD_PINK, "fa-euro-sign",
-                "Relocation Cost",
+                CLR_CARD_RED2, "fa-euro-sign",
+                "Estimated Relocation Cost",
                 f"€{reloc_cost_val:.0f}",
                 "Risk-adjusted relocation cost."
             ), unsafe_allow_html=True)
@@ -667,12 +667,16 @@ with tab1:
                               row["expected_cancellations"] / row["total_bookings"])
             cancel_probs_arr = np.full(n_current, float(mean_cp))
 
+        st.markdown('<div class="nss-card" style="background-color: white;">', unsafe_allow_html=True)
+
         n_simulate = st.slider(
-            "Total bookings to simulate",
+            "Booking Simulations",
             min_value=0,
             max_value=recommended_total,
             value=recommended_total,
         )
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # Compute PMF
         if n_simulate == 0:
@@ -704,13 +708,13 @@ with tab1:
         with ds1:
             st.markdown(dist_stat_html("Bookings simulated", str(n_simulate)), unsafe_allow_html=True)
         with ds2:
-            st.markdown(dist_stat_html("Expected show-ups", f"{mean_su:.1f}"), unsafe_allow_html=True)
+            st.markdown(dist_stat_html("Expected show-ups", f"{mean_su:.1f}", "conf"), unsafe_allow_html=True)
         with ds3:
             st.markdown(dist_stat_html("Std deviation", f"{std_su:.2f}"), unsafe_allow_html=True)
         with ds4:
             st.markdown(dist_stat_html("Relocation risk", f"{reloc_prob_sim * 100:.2f}%", "risk"), unsafe_allow_html=True)
         with ds5:
-            st.markdown(dist_stat_html("Target confidence", f"{target_confidence:.1f}%", "conf"), unsafe_allow_html=True)
+            st.markdown(dist_stat_html("Confidence", f"{target_confidence:.1f}%", "conf"), unsafe_allow_html=True)
 
         # PMF chart — 3 colours: light-blue (≤ n_current), primary blue (n_current → capacity), red (> capacity)
         x_vals = list(range(len(show_pmf)))
@@ -750,29 +754,32 @@ with tab1:
         )
         st.plotly_chart(fig_dist, use_container_width=True)
 
-        # ---- Individual show-up probability pills ----
-        if n_simulate > 0 and len(indiv_show) > 0:
-            st.markdown(
-                '<div class="nss-section-sub" style="margin-top:0;"><i class="fas fa-bolt"></i> Individual show-up probability</div>',
-                unsafe_allow_html=True,
-            )
+        # --- Individual show-up probabilities (like the reference image) ---
+        if n_simulate > 0:
             show_pcts = (indiv_show * 100).astype(int).tolist()
+            current_pcts = show_pcts[:min(n_simulate, n_current)]
+            extra_pcts = show_pcts[n_current:] if n_simulate > n_current else []
+
             display_limit = 15
-            pills_html = '<div class="showup-pills">'
+            badges = ""
             for i, pct in enumerate(show_pcts[:display_limit]):
-                bar_w = max(20, int(pct * 0.5))
-                pills_html += (
-                    f'<span class="sup-pill">'
-                    f'<span class="pill-id">#{i+1}</span>'
-                    f'<span class="pill-bar" style="width:{bar_w}px;"></span>'
-                    f'{pct}%'
-                    f'</span>'
+                color = "#3498db" if i < n_current else "#2ecc71"
+                badges += (
+                    f'<span style="display:inline-block;margin:2px;padding:4px 8px;'
+                    f'border-radius:12px;background:{color};color:white;'
+                    f'font-size:12px;font-weight:600;">{pct}</span>'
                 )
             remaining = len(show_pcts) - display_limit
             if remaining > 0:
-                pills_html += f'<span style="font-size:12px;color:{CLR_TEXT_MUT};align-self:center;">+{remaining} more</span>'
-            pills_html += '</div>'
-            st.markdown(pills_html, unsafe_allow_html=True)
+                badges += f' <span style="font-size:13px;color:#888;">…+{remaining} more</span>'
+
+            st.markdown(
+                f"Individual show-up probabilities % "
+                f"(<span style='color:#3498db'>■</span> Current "
+                f"<span style='color:#2ecc71'>■</span> Extra)",
+                unsafe_allow_html=True,
+            )
+            st.markdown(badges, unsafe_allow_html=True)
 
         st.markdown("<hr>", unsafe_allow_html=True)
 
