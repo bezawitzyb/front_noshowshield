@@ -23,12 +23,12 @@ CLR_PAGE_BG       = "#F4F7FA"
 CLR_CARD_BLUE     = "#DBEAF5"   # Capacity, Confirmed Bookings
 CLR_CARD_GREEN    = "#DCF2E9"   # Expected Show-ups
 CLR_CARD_RED      = "#FEE2E2"   # Relocation Risk / Cost
-CLR_CARD_AMBER    = "#FCE9D5"   # Rec. Extra Bookings
+CLR_CARD_AMBER    = "#A1E7D6"   # Rec. Extra Bookings
 # Card fills — row 2 (financial / risk metrics)
 CLR_CARD_YELLOW   = "#E5E7EB"   # Current Revenue
 CLR_CARD_RED2     = "#FEE2E2"   # Relocation Risk (shared)
 CLR_CARD_PINK     = "#FFFFFF"   # Relocation Cost (white card, update if needed)
-CLR_CARD_SOFTGRN  = "#DCF2E9"   # Net Benefit
+CLR_CARD_SOFTGRN  = "#A1E7D6"   # Net Benefit
 # Text / accent
 CLR_TEXT_PRI      = "#1E293B"
 CLR_TEXT_MUT      = "#64748B"
@@ -1119,7 +1119,7 @@ with tab2:
                 </button>
                 <button style="padding:8px 18px;border-radius:8px;border:none;
                   background:{CLR_RED_RISK};color:white;font-size:13px;font-weight:600;cursor:pointer;">
-                  Apply Relocation Strategy
+                  Apply Booking Strategy
                 </button>
               </div>
             </div>
