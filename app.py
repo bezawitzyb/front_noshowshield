@@ -984,16 +984,26 @@ with tab2:
             export_clicked = st.button("⬇ Export", use_container_width=True, disabled=True)
 
         if selected_label != placeholder and top_bookings_list:
-            selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
-            cache_key = f"explain_{selected_hotel}_{selected_date}_{selected_room}_{selected_entry['rank']}"
+            # Map selection back to booking entry using index because booking payload may not have label
+            selected_idx = None
+            for i, b in enumerate(top_bookings_list):
+                label = b.get("label") or f"Booking {i+1}"
+                if label == selected_label:
+                    selected_idx = i
+                    break
+            if selected_idx is None:
+                st.error("Selected booking could not be resolved. Please refresh and try again.")
+            else:
+                selected_entry = top_bookings_list[selected_idx]
+                cache_key = f"explain_{selected_hotel}_{selected_date}_{selected_room}_{selected_idx}"
 
-            if cache_key not in st.session_state:
-                with st.spinner("Running prediction and SHAP explanation …"):
-                    explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
-                if "error" in explain_result:
-                    st.error(explain_result["error"])
-                else:
-                    st.session_state[cache_key] = explain_result
+                if cache_key not in st.session_state:
+                    with st.spinner("Running prediction and SHAP explanation …"):
+                        explain_result = api_post(EXPLAIN_LOCAL_URL, selected_entry["booking"])
+                    if "error" in explain_result:
+                        st.error(explain_result["error"])
+                    else:
+                        st.session_state[cache_key] = explain_result
 
             if cache_key in st.session_state:
                 st.session_state["single_booking"] = selected_entry["booking"]
