@@ -32,7 +32,7 @@ CLR_CARD_SOFTGRN  = "#DCF2E9"   # Net Benefit
 # Text / accent
 CLR_TEXT_PRI      = "#1E293B"
 CLR_TEXT_MUT      = "#64748B"
-CLR_BLUE          = "#5DA6D4"
+CLR_BLUE          = "#5DA9B2"
 CLR_GREEN_POS     = "#73B09D"
 CLR_RED_RISK      = "#E57373"
 # Chart bars — 3 colours using primary blue family
@@ -252,7 +252,7 @@ st.markdown(f"""
 
   /* ---- Sidebar background ---- */
   .stSidebar {{
-    background-color: #F1F5F9 !important;
+    background-color: #BDC9E1 !important;
   }}
 
   /* ---- Sidebar tabs ---- */
@@ -276,7 +276,37 @@ st.markdown(f"""
     border-color: {CLR_BLUE};
     color: {CLR_TEXT_PRI};
     font-weight: 600;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 2px 4px rgba(93, 169, 178, 0.2);
+  }}
+
+  /* ---- Main Content Tabs ---- */
+  [role="tablist"] button[role="tab"] {{
+    color: {CLR_TEXT_MUT};
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+  }}
+  [role="tablist"] button[role="tab"]:hover {{
+    color: {CLR_BLUE};
+  }}
+  [role="tablist"] button[role="tab"][aria-selected="true"] {{
+    color: {CLR_BLUE};
+    border-bottom: 2px solid {CLR_BLUE};
+    background: #E0F2FE;
+  }}
+
+  /* ---- Primary Button (Get Recommendations) ---- */
+  button[kind="primary"] {{
+    background: linear-gradient(180deg, #45C2C7 0%, #39AFB4 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }}
+  button[kind="primary"]:hover {{
+    filter: brightness(1.05);
+  }}
+  button[kind="primary"]:active {{
+    filter: brightness(0.95);
   }}
 </style>
 """, unsafe_allow_html=True)
