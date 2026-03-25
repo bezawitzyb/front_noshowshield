@@ -37,219 +37,277 @@ st.set_page_config(page_title="NoShowShield", page_icon="🛡️", layout="wide"
 
 
 # ------------------------------------------------------------------
-# 🎨  THEME — Custom CSS Injection
+# 🍎  APPLE HIG — Custom CSS
 # ------------------------------------------------------------------
-CUSTOM_CSS = """
+APPLE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* ── APPLE SYSTEM FONT STACK ─────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ── ROOT PALETTE ────────────────────────────────────── */
 :root {
-    --primary:        #6C5CE7;
-    --primary-light:  #A29BFE;
-    --primary-lighter: #DDD6FE;
-    --primary-bg:     #F3F0FF;
-    --accent:         #8B5CF6;
-    --surface:        #FFFFFF;
-    --surface-glass:  rgba(255, 255, 255, 0.72);
-    --text-primary:   #1E1B4B;
-    --text-secondary: #6B7280;
-    --text-muted:     #9CA3AF;
-    --border:         rgba(108, 92, 231, 0.12);
-    --shadow-sm:      0 1px 3px rgba(108, 92, 231, 0.06);
-    --shadow-md:      0 4px 14px rgba(108, 92, 231, 0.08);
-    --shadow-lg:      0 8px 30px rgba(108, 92, 231, 0.12);
-    --shadow-glow:    0 0 20px rgba(108, 92, 231, 0.15);
-    --radius:         16px;
-    --radius-sm:      10px;
-    --radius-xs:      6px;
-    --green:          #10B981;
-    --red:            #EF4444;
-    --amber:          #F59E0B;
+    /* Apple System Colors */
+    --apple-blue:         #007AFF;
+    --apple-blue-hover:   #0066D6;
+    --apple-blue-light:   #E8F2FF;
+    --apple-green:        #34C759;
+    --apple-red:          #FF3B30;
+    --apple-orange:       #FF9500;
+    --apple-teal:         #5AC8FA;
+    --apple-indigo:       #5856D6;
+
+    /* Apple Grays */
+    --apple-gray-1:       #8E8E93;
+    --apple-gray-2:       #AEAEB2;
+    --apple-gray-3:       #C7C7CC;
+    --apple-gray-4:       #D1D1D6;
+    --apple-gray-5:       #E5E5EA;
+    --apple-gray-6:       #F2F2F7;
+
+    /* Semantic */
+    --label-primary:      #000000;
+    --label-secondary:    #3C3C43;
+    --label-tertiary:     #3C3C4399;
+    --label-quaternary:   #3C3C434D;
+    --bg-primary:         #FFFFFF;
+    --bg-secondary:       #F2F2F7;
+    --bg-tertiary:        #FFFFFF;
+    --separator:          rgba(60, 60, 67, 0.12);
+    --separator-opaque:   #C6C6C8;
+
+    /* Materials (translucency) */
+    --material-thin:      rgba(255, 255, 255, 0.65);
+    --material-regular:   rgba(255, 255, 255, 0.82);
+    --material-thick:     rgba(255, 255, 255, 0.92);
+
+    /* Elevation */
+    --shadow-sm:    0 0.5px 1px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md:    0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-lg:    0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08);
+
+    /* Radii — Apple uses generous, precise radii */
+    --radius-xs:    6px;
+    --radius-sm:    8px;
+    --radius-md:    12px;
+    --radius-lg:    16px;
+    --radius-xl:    20px;
+    --radius-2xl:   22px;
+
+    /* Font — SF Pro approximation */
+    --sf: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --sf-rounded: -apple-system, BlinkMacSystemFont, "SF Pro Rounded",
+                  "Inter", "Helvetica Neue", sans-serif;
+    --sf-mono: "SF Mono", "Fira Code", "Menlo", "Monaco", monospace;
 }
 
-/* ── GLOBAL RESETS ───────────────────────────────────── */
+/* ── GLOBAL ──────────────────────────────────────────── */
 html, body, [data-testid="stAppViewContainer"] {
-    font-family: 'DM Sans', sans-serif !important;
-    color: var(--text-primary) !important;
+    font-family: var(--sf) !important;
+    color: var(--label-primary) !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
 }
 
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(145deg, #F8F7FF 0%, #F0EEFF 40%, #EDE9FE 100%) !important;
+    background: var(--bg-secondary) !important;
 }
 
 /* ── HEADER / TOOLBAR CLEANUP ────────────────────────── */
 header[data-testid="stHeader"] {
-    background: transparent !important;
+    background: rgba(242, 242, 247, 0.72) !important;
+    backdrop-filter: saturate(180%) blur(20px) !important;
+    -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+    border-bottom: 0.5px solid var(--separator) !important;
 }
+
 #MainMenu, footer, header .stDeployButton {
     display: none !important;
 }
 
-/* ── SIDEBAR ─────────────────────────────────────────── */
+/* ── SIDEBAR — Apple "Materials" translucent panel ──── */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1E1B4B 0%, #312E81 100%) !important;
-    border-right: none !important;
-    box-shadow: 4px 0 24px rgba(30, 27, 75, 0.15) !important;
+    background: rgba(242, 242, 247, 0.78) !important;
+    backdrop-filter: saturate(180%) blur(20px) !important;
+    -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+    border-right: 0.5px solid var(--separator) !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stSidebar"] * {
-    color: #E0E7FF !important;
+    color: var(--label-primary) !important;
+    font-family: var(--sf) !important;
 }
 
 [data-testid="stSidebar"] .stMarkdown h1,
 [data-testid="stSidebar"] .stMarkdown h2,
-[data-testid="stSidebar"] .stMarkdown h3 {
-    color: #FFFFFF !important;
-    font-family: 'DM Sans', sans-serif !important;
+[data-testid="stSidebar"] .stMarkdown h3,
+[data-testid="stSidebar"] .stMarkdown h4 {
     font-weight: 600 !important;
-    letter-spacing: -0.02em !important;
+    letter-spacing: -0.01em !important;
+    font-size: 0.9rem !important;
+    color: var(--label-primary) !important;
 }
 
 [data-testid="stSidebar"] label {
-    color: #C7D2FE !important;
-    font-weight: 500 !important;
-    font-size: 0.85rem !important;
+    color: var(--label-secondary) !important;
+    font-weight: 400 !important;
+    font-size: 0.82rem !important;
 }
 
 [data-testid="stSidebar"] .stSelectbox > div > div,
 [data-testid="stSidebar"] .stNumberInput > div > div > input {
-    background: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    background: var(--bg-primary) !important;
+    border: 0.5px solid var(--separator-opaque) !important;
     border-radius: var(--radius-sm) !important;
-    color: #FFFFFF !important;
+    font-size: 0.88rem !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-[data-testid="stSidebar"] .stSlider > div > div > div {
-    background: var(--primary-light) !important;
+[data-testid="stSidebar"] .stSelectbox > div > div:focus-within,
+[data-testid="stSidebar"] .stNumberInput > div > div > input:focus {
+    border-color: var(--apple-blue) !important;
+    box-shadow: 0 0 0 3.5px rgba(0, 122, 255, 0.2) !important;
 }
 
 [data-testid="stSidebar"] .stTable,
 [data-testid="stSidebar"] table {
-    background: rgba(255, 255, 255, 0.06) !important;
-    border-radius: var(--radius-sm) !important;
+    background: var(--bg-primary) !important;
+    border-radius: var(--radius-md) !important;
     overflow: hidden;
+    box-shadow: var(--shadow-sm) !important;
 }
 
 [data-testid="stSidebar"] td, [data-testid="stSidebar"] th {
-    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: var(--separator) !important;
     font-size: 0.82rem !important;
 }
 
 [data-testid="stSidebar"] .stCaption, [data-testid="stSidebar"] .stCaption p {
-    color: #A5B4FC !important;
+    color: var(--apple-gray-1) !important;
 }
 
-/* ── SIDEBAR BUTTON ──────────────────────────────────── */
+/* ── SIDEBAR BUTTON — Apple-style filled button ──────── */
 [data-testid="stSidebar"] .stButton > button {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%) !important;
+    background: var(--apple-blue) !important;
     color: white !important;
     border: none !important;
-    border-radius: var(--radius-sm) !important;
-    padding: 0.7rem 1.4rem !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.65rem 1.2rem !important;
     font-weight: 600 !important;
-    font-size: 0.9rem !important;
-    letter-spacing: 0.01em !important;
-    box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35) !important;
-    transition: all 0.25s ease !important;
+    font-size: 0.88rem !important;
+    letter-spacing: -0.01em !important;
+    box-shadow: none !important;
+    transition: all 0.15s ease !important;
 }
 
 [data-testid="stSidebar"] .stButton > button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.45) !important;
+    background: var(--apple-blue-hover) !important;
+    transform: none !important;
 }
 
-/* ── MAIN CONTENT AREA ───────────────────────────────── */
+[data-testid="stSidebar"] .stButton > button:active {
+    opacity: 0.7 !important;
+    transform: scale(0.985) !important;
+}
+
+/* ── MAIN CONTENT ────────────────────────────────────── */
 .block-container {
     padding: 2rem 2.5rem 3rem 2.5rem !important;
-    max-width: 1200px !important;
+    max-width: 1180px !important;
 }
 
-/* ── HEADINGS ────────────────────────────────────────── */
+/* ── HEADINGS — Apple typographic scale ──────────────── */
 h1 {
-    font-family: 'DM Sans', sans-serif !important;
+    font-family: var(--sf) !important;
     font-weight: 700 !important;
-    font-size: 1.85rem !important;
-    color: var(--text-primary) !important;
-    letter-spacing: -0.03em !important;
-    margin-bottom: 0.25rem !important;
+    font-size: 1.75rem !important;
+    color: var(--label-primary) !important;
+    letter-spacing: -0.025em !important;
+    line-height: 1.15 !important;
+    margin-bottom: 0.15rem !important;
 }
 
-h2, .stSubheader {
-    font-family: 'DM Sans', sans-serif !important;
+h2, [data-testid="stSubheader"] {
+    font-family: var(--sf) !important;
     font-weight: 600 !important;
-    font-size: 1.2rem !important;
-    color: var(--text-primary) !important;
-    letter-spacing: -0.02em !important;
+    font-size: 1.15rem !important;
+    color: var(--label-primary) !important;
+    letter-spacing: -0.015em !important;
+    line-height: 1.25 !important;
 }
 
 h3 {
-    font-family: 'DM Sans', sans-serif !important;
+    font-family: var(--sf) !important;
     font-weight: 600 !important;
-    font-size: 1.05rem !important;
-    color: var(--text-primary) !important;
+    font-size: 1rem !important;
+    color: var(--label-primary) !important;
+    letter-spacing: -0.01em !important;
 }
 
-/* ── METRIC CARDS ────────────────────────────────────── */
+p, li, span, div {
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+}
+
+/* ── METRIC CARDS — Apple "grouped" content style ────── */
 [data-testid="stMetric"] {
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: var(--radius) !important;
-    padding: 1.15rem 1.3rem !important;
-    box-shadow: var(--shadow-md) !important;
-    transition: all 0.3s ease !important;
+    background: var(--bg-primary) !important;
+    border: 0.5px solid var(--separator) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 1rem 1.15rem !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: box-shadow 0.2s ease !important;
 }
 
 [data-testid="stMetric"]:hover {
-    box-shadow: var(--shadow-lg) !important;
-    transform: translateY(-2px);
-    border-color: rgba(108, 92, 231, 0.22);
+    box-shadow: var(--shadow-md) !important;
 }
 
 [data-testid="stMetric"] label {
-    color: var(--text-secondary) !important;
-    font-size: 0.78rem !important;
+    color: var(--apple-gray-1) !important;
+    font-size: 0.72rem !important;
     font-weight: 500 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
+    letter-spacing: 0.03em !important;
 }
 
 [data-testid="stMetric"] [data-testid="stMetricValue"] {
-    color: var(--text-primary) !important;
-    font-weight: 700 !important;
-    font-size: 1.65rem !important;
+    color: var(--label-primary) !important;
+    font-weight: 600 !important;
+    font-size: 1.5rem !important;
     letter-spacing: -0.02em !important;
+    font-feature-settings: "tnum" !important;
 }
 
-/* ── TABS ────────────────────────────────────────────── */
+/* ── TABS — Apple segmented control ──────────────────── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0 !important;
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(8px) !important;
-    border-radius: var(--radius) !important;
-    padding: 5px !important;
-    border: 1px solid var(--border) !important;
-    box-shadow: var(--shadow-sm) !important;
+    background: var(--apple-gray-5) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 2px !important;
+    border: none !important;
+    box-shadow: none !important;
     margin-bottom: 1.5rem !important;
+    display: inline-flex !important;
 }
 
 .stTabs [data-baseweb="tab"] {
-    border-radius: var(--radius-sm) !important;
-    padding: 0.6rem 1.5rem !important;
+    border-radius: var(--radius-xs) !important;
+    padding: 0.42rem 1rem !important;
     font-weight: 500 !important;
-    font-size: 0.88rem !important;
-    color: var(--text-secondary) !important;
+    font-size: 0.82rem !important;
+    color: var(--label-primary) !important;
     border: none !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+    min-height: unset !important;
 }
 
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%) !important;
-    color: white !important;
+    background: var(--bg-primary) !important;
+    color: var(--label-primary) !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3) !important;
+    box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06) !important;
 }
 
 .stTabs [data-baseweb="tab-highlight"],
@@ -257,22 +315,21 @@ h3 {
     display: none !important;
 }
 
-/* ── DIVIDERS ────────────────────────────────────────── */
+/* ── DIVIDERS — Apple hairline separators ────────────── */
 hr {
     border: none !important;
-    height: 1px !important;
-    background: linear-gradient(90deg, transparent, var(--primary-lighter), transparent) !important;
-    margin: 1.5rem 0 !important;
+    height: 0.5px !important;
+    background: var(--separator) !important;
+    margin: 1.25rem 0 !important;
 }
 
-/* ── TABLES ──────────────────────────────────────────── */
+/* ── TABLES — Apple grouped list style ───────────────── */
 .stTable, [data-testid="stTable"] {
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(8px) !important;
-    border-radius: var(--radius) !important;
+    background: var(--bg-primary) !important;
+    border-radius: var(--radius-md) !important;
     overflow: hidden !important;
     box-shadow: var(--shadow-sm) !important;
-    border: 1px solid var(--border) !important;
+    border: 0.5px solid var(--separator) !important;
 }
 
 table {
@@ -281,21 +338,21 @@ table {
 }
 
 th {
-    background: rgba(108, 92, 231, 0.06) !important;
-    color: var(--text-secondary) !important;
+    background: var(--bg-secondary) !important;
+    color: var(--apple-gray-1) !important;
     font-weight: 600 !important;
-    font-size: 0.8rem !important;
+    font-size: 0.72rem !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-    padding: 0.75rem 1rem !important;
-    border-bottom: 1px solid var(--border) !important;
+    letter-spacing: 0.04em !important;
+    padding: 0.6rem 1rem !important;
+    border-bottom: 0.5px solid var(--separator) !important;
 }
 
 td {
-    padding: 0.65rem 1rem !important;
-    font-size: 0.88rem !important;
-    border-bottom: 1px solid rgba(108, 92, 231, 0.06) !important;
-    color: var(--text-primary) !important;
+    padding: 0.6rem 1rem !important;
+    font-size: 0.86rem !important;
+    border-bottom: 0.5px solid var(--separator) !important;
+    color: var(--label-primary) !important;
 }
 
 tr:last-child td {
@@ -304,109 +361,145 @@ tr:last-child td {
 
 /* ── DATAFRAMES ──────────────────────────────────────── */
 [data-testid="stDataFrame"] {
-    border-radius: var(--radius) !important;
+    border-radius: var(--radius-md) !important;
     overflow: hidden !important;
     box-shadow: var(--shadow-sm) !important;
-    border: 1px solid var(--border) !important;
+    border: 0.5px solid var(--separator) !important;
 }
 
-/* ── INFO / WARNING / ERROR BOXES ────────────────────── */
+/* ── ALERTS — Apple notification style ───────────────── */
 .stAlert {
-    border-radius: var(--radius-sm) !important;
+    border-radius: var(--radius-md) !important;
     border: none !important;
-    font-size: 0.88rem !important;
+    font-size: 0.86rem !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
-[data-testid="stAlert"][data-baseweb] {
-    border-radius: var(--radius-sm) !important;
-}
-
-/* ── SLIDER ──────────────────────────────────────────── */
+/* ── SLIDER — Apple-style track ──────────────────────── */
 .stSlider [data-baseweb="slider"] [role="slider"] {
-    background: var(--primary) !important;
-    border-color: var(--primary) !important;
+    background: var(--apple-blue) !important;
+    border-color: var(--apple-blue) !important;
+    width: 22px !important;
+    height: 22px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* ── SELECTBOX ───────────────────────────────────────── */
 .stSelectbox > div > div {
     border-radius: var(--radius-sm) !important;
-    border-color: var(--border) !important;
-}
-
-/* ── SPINNER ─────────────────────────────────────────── */
-.stSpinner > div {
-    border-top-color: var(--primary) !important;
-}
-
-/* ── PLOTLY CHARTS ───────────────────────────────────── */
-[data-testid="stPlotlyChart"] {
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(8px) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: var(--radius) !important;
-    padding: 0.75rem !important;
+    border: 0.5px solid var(--separator-opaque) !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
-/* ── CAPTION ─────────────────────────────────────────── */
-.stCaption, .stCaption p {
-    color: var(--text-muted) !important;
-    font-size: 0.8rem !important;
+/* ── PLOTLY CHARTS — clean container ─────────────────── */
+[data-testid="stPlotlyChart"] {
+    background: var(--bg-primary) !important;
+    border: 0.5px solid var(--separator) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.5rem !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
-/* ── SCROLLBAR ───────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
+/* ── CAPTIONS ────────────────────────────────────────── */
+.stCaption, .stCaption p {
+    color: var(--apple-gray-1) !important;
+    font-size: 0.78rem !important;
+}
+
+/* ── SCROLLBAR — Apple thin style ────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-    background: var(--primary-lighter);
+    background: var(--apple-gray-3);
     border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--primary-light); }
+::-webkit-scrollbar-thumb:hover { background: var(--apple-gray-2); }
 
-/* ── BADGE WRAPPER (for show-up probs) ───────────────── */
+/* ── SHOW-UP PROBABILITY BADGES ──────────────────────── */
 .badge-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 4px;
+    margin-top: 6px;
 }
 .badge-strip .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    padding: 4px 10px;
+    min-width: 34px;
+    padding: 3px 9px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: white;
+    font-feature-settings: "tnum";
 }
-.badge-current { background: var(--primary); }
-.badge-extra   { background: var(--green); }
-.badge-more    { color: var(--text-muted) !important; font-weight: 400; font-size: 0.8rem; }
+.badge-current { background: var(--apple-blue); }
+.badge-extra   { background: var(--apple-green); }
+.badge-more    { color: var(--apple-gray-1) !important; font-weight: 400; font-size: 0.78rem; }
+
+/* ── EMPTY STATE ─────────────────────────────────────── */
+.apple-empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+.apple-empty-state .icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.6rem;
+    opacity: 0.35;
+}
+.apple-empty-state p {
+    color: var(--apple-gray-1);
+    font-size: 0.92rem;
+    max-width: 360px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* ── SIDEBAR SECTION HEADER ──────────────────────────── */
+.sidebar-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--label-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.sidebar-section .sf-icon {
+    font-size: 14px;
+    color: var(--apple-blue);
+}
 </style>
 """
 
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(APPLE_CSS, unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------
-# 🎨  Plotly Theme Constants
+# Plotly Apple Theme Constants
 # ------------------------------------------------------------------
 PLOTLY_BG = "rgba(0,0,0,0)"
-PLOTLY_GRID = "rgba(108, 92, 231, 0.06)"
-PLOTLY_PRIMARY = "#6C5CE7"
-PLOTLY_PRIMARY_LIGHT = "#A29BFE"
-PLOTLY_GREEN = "#10B981"
-PLOTLY_RED = "#EF4444"
-PLOTLY_FONT = dict(family="DM Sans, sans-serif", color="#1E1B4B")
+PLOTLY_GRID = "rgba(60, 60, 67, 0.06)"
+PLOTLY_BLUE = "#007AFF"
+PLOTLY_BLUE_LIGHT = "#5AC8FA"
+PLOTLY_GREEN = "#34C759"
+PLOTLY_RED = "#FF3B30"
+PLOTLY_GRAY = "#8E8E93"
+PLOTLY_FONT = dict(
+    family='-apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif',
+    color="#000000",
+    size=12,
+)
 
 PLOTLY_LAYOUT_DEFAULTS = dict(
     paper_bgcolor=PLOTLY_BG,
     plot_bgcolor=PLOTLY_BG,
     font=PLOTLY_FONT,
-    xaxis=dict(showgrid=False, zeroline=False),
-    yaxis=dict(showgrid=True, gridcolor=PLOTLY_GRID, zeroline=False),
+    xaxis=dict(showgrid=False, zeroline=False, linecolor="rgba(60,60,67,0.12)", linewidth=0.5),
+    yaxis=dict(showgrid=True, gridcolor=PLOTLY_GRID, zeroline=False, gridwidth=0.5),
     margin=dict(l=20, r=20, t=30, b=40),
     showlegend=False,
 )
@@ -417,10 +510,10 @@ PLOTLY_LAYOUT_DEFAULTS = dict(
 # ------------------------------------------------------------------
 st.markdown(
     """
-    <div style="margin-bottom: 0.25rem;">
-        <span style="font-size: 2rem; margin-right: 0.4rem;">🛡️</span>
-        <span style="font-family: 'DM Sans', sans-serif; font-weight: 700;
-                      font-size: 1.85rem; color: #1E1B4B; letter-spacing: -0.03em;">
+    <div style="margin-bottom: 0.2rem;">
+        <span style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, sans-serif;
+                      font-weight: 700; font-size: 1.75rem; color: #000;
+                      letter-spacing: -0.025em;">
             NoShowShield
         </span>
     </div>
@@ -430,10 +523,10 @@ st.markdown(
 
 st.markdown(
     """
-    <p style="color: #6B7280; font-size: 0.92rem; line-height: 1.6; max-width: 720px; margin-bottom: 1.5rem;">
+    <p style="color: #8E8E93; font-size: 0.88rem; line-height: 1.55;
+              max-width: 620px; margin-bottom: 1.25rem; letter-spacing: -0.01em;">
         AI-powered revenue protection against hotel cancellations.
-        Select a date and room type to get overbooking recommendations
-        backed by SHAP explainability.
+        Select a date and room type for overbooking recommendations backed by SHAP explainability.
     </p>
     """,
     unsafe_allow_html=True,
@@ -465,26 +558,25 @@ def poisson_binomial_pmf(probs):
 with st.sidebar:
     st.markdown(
         """
-        <div style="text-align: center; margin-bottom: 1.5rem; padding-top: 0.5rem;">
-            <div style="font-size: 2rem; margin-bottom: 0.25rem;">🛡️</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #FFFFFF !important;
-                        letter-spacing: -0.02em;">NoShowShield</div>
-            <div style="font-size: 0.72rem; color: #A5B4FC !important;
-                        text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px;">
-                Revenue Protection
+        <div style="text-align: center; padding: 0.75rem 0 1rem;">
+            <div style="display: inline-flex; align-items: center; justify-content: center;
+                        width: 44px; height: 44px; border-radius: 12px;
+                        background: linear-gradient(180deg, #007AFF, #0055D4);
+                        margin-bottom: 0.35rem;">
+                <span style="color: white; font-size: 1.15rem;">🛡️</span>
             </div>
+            <div style="font-size: 0.92rem; font-weight: 700; color: #000 !important;
+                        letter-spacing: -0.02em;">NoShowShield</div>
         </div>
-        <hr style="border: none; height: 1px;
-                    background: linear-gradient(90deg, transparent, rgba(165,180,252,0.3), transparent);
-                    margin: 0.5rem 0 1.2rem 0;">
+        <hr style="border: none; height: 0.5px; background: rgba(60,60,67,0.12); margin: 0 0 1rem;">
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("#### ⚙️ Optimization Settings")
+    st.markdown('<div class="sidebar-section"><span class="sf-icon">⚙️</span> Settings</div>', unsafe_allow_html=True)
 
     relocation_cost = st.number_input(
-        "💰 Relocation cost (€)",
+        "Relocation cost (€)",
         min_value=0.0,
         max_value=1000.0,
         value=300.0,
@@ -493,7 +585,7 @@ with st.sidebar:
     )
 
     max_risk = st.slider(
-        "📊 Max relocation risk",
+        "Max relocation risk",
         min_value=0.0,
         max_value=0.10,
         value=0.02,
@@ -549,8 +641,8 @@ def api_post(url: str, payload: dict, timeout: int = 60, max_retries: int = 2):
 # Load optimisation data
 # ------------------------------------------------------------------
 with st.sidebar:
-    if st.button("🚀  Get Recommendations", type="primary", use_container_width=True):
-        with st.spinner("Fetching predictions from API …"):
+    if st.button("Get Recommendations", type="primary", use_container_width=True):
+        with st.spinner("Fetching predictions …"):
             results = api_get(OPTIMISE_URL, {
                 "relocation_cost": relocation_cost,
                 "max_risk": max_risk,
@@ -564,9 +656,9 @@ with st.sidebar:
 
 
 # ==================================================================
-# TABS
+# TABS (Apple segmented control style)
 # ==================================================================
-tab1, tab2 = st.tabs(["📋  Overbooking Recommendations", "🔍  Single Booking Prediction"])
+tab1, tab2 = st.tabs(["Overbooking Recommendations", "Single Booking Prediction"])
 
 
 # ==================================================================
@@ -575,21 +667,15 @@ tab1, tab2 = st.tabs(["📋  Overbooking Recommendations", "🔍  Single Booking
 with tab1:
     if "results" not in st.session_state:
         st.markdown(
-            """
-            <div style="text-align: center; padding: 4rem 2rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🛡️</div>
-                <p style="color: #6B7280; font-size: 0.95rem; max-width: 420px; margin: 0 auto;">
-                    Adjust settings in the sidebar and click
-                    <strong>Get Recommendations</strong> to start.
-                </p>
-            </div>
-            """,
+            '<div class="apple-empty-state">'
+            '<div class="icon">🛡️</div>'
+            '<p>Adjust settings in the sidebar and tap <strong>Get Recommendations</strong> to get started.</p>'
+            '</div>',
             unsafe_allow_html=True,
         )
     else:
         results = st.session_state["results"]
 
-        # Parse API response
         recs = pd.DataFrame(results["recommendations"])
         recs["arrival_date"] = pd.to_datetime(recs["arrival_date"])
         metrics = results["metrics"]
@@ -598,18 +684,18 @@ with tab1:
         # Sidebar — filters
         with st.sidebar:
             st.markdown(
-                '<hr style="border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(165,180,252,0.3),transparent);margin:1.2rem 0;">',
+                '<hr style="border:none;height:0.5px;background:rgba(60,60,67,0.12);margin:1rem 0;">',
                 unsafe_allow_html=True,
             )
-            st.markdown("#### 🔎 Filters")
+            st.markdown('<div class="sidebar-section"><span class="sf-icon">🔍</span> Filters</div>', unsafe_allow_html=True)
 
             available_hotels = sorted(recs["hotel"].unique())
-            selected_hotel = st.selectbox("🏨 Select hotel", available_hotels)
+            selected_hotel = st.selectbox("Hotel", available_hotels)
 
             available_dates = sorted(
                 recs[recs["hotel"] == selected_hotel]["arrival_date"].dt.date.unique()
             )
-            selected_date = st.selectbox("📅 Select date", available_dates)
+            selected_date = st.selectbox("Date", available_dates)
 
             available_rooms = sorted(
                 recs[
@@ -617,36 +703,35 @@ with tab1:
                     & (recs["arrival_date"].dt.date == selected_date)
                 ]["assigned_room_type"].unique()
             )
-            selected_room = st.selectbox("🛏️ Select room type", available_rooms)
+            selected_room = st.selectbox("Room type", available_rooms)
 
         # Sidebar — model info
         with st.sidebar:
             st.markdown(
-                '<hr style="border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(165,180,252,0.3),transparent);margin:1.2rem 0;">',
+                '<hr style="border:none;height:0.5px;background:rgba(60,60,67,0.12);margin:1rem 0;">',
                 unsafe_allow_html=True,
             )
-            st.markdown("#### 🤖 Model Info")
+            st.markdown('<div class="sidebar-section"><span class="sf-icon">🤖</span> Model</div>', unsafe_allow_html=True)
             st.caption(model_info.get("model_type", "XGBoost"))
             metrics_df = pd.DataFrame(
                 {"Metric": list(metrics.keys()), "Score": list(metrics.values())}
             ).set_index("Metric")
             st.table(metrics_df)
 
-        # Status bar
+        # Status line
         st.caption(
             f"Relocation cost = €{st.session_state.get('relocation_cost', relocation_cost):.0f}  ·  "
             f"Max risk = {st.session_state.get('max_risk', max_risk) * 100:.1f}%  ·  "
             f"Model AUC = {metrics.get('auc', '—')}"
         )
 
-        # Filter recommendations
+        # Filter
         filtered = recs[
             (recs["hotel"] == selected_hotel)
             & (recs["arrival_date"].dt.date == selected_date)
             & (recs["assigned_room_type"] == selected_room)
         ]
 
-        # Display recommendation
         st.subheader("Recommendation")
 
         if filtered.empty:
@@ -654,7 +739,6 @@ with tab1:
         else:
             row = filtered.iloc[0]
 
-            # Top metrics row
             col1, col2, col3 = st.columns(3)
             col1.metric("Capacity", int(row["capacity"]))
             col2.metric("Current Bookings", int(row["total_bookings"]))
@@ -669,21 +753,17 @@ with tab1:
 
             st.divider()
 
-            # ----------------------------------------------------------
             # Show-up Distribution
-            # ----------------------------------------------------------
             st.subheader("Show-up Distribution")
             st.caption(
-                f"Poisson-Binomial distribution of expected show-ups for "
-                f"**{selected_room}** on **{selected_date}**. "
-                f"Slide to see how adding bookings shifts the distribution."
+                f"Poisson-Binomial distribution for "
+                f"**{selected_room}** on **{selected_date}**."
             )
 
             recommended_total = int(row["recommended_total"])
             n_current = int(row["total_bookings"])
             capacity = int(row["capacity"])
 
-            # Fetch individual cancel probs
             probs_cache_key = f"gprobs_{selected_hotel}_{selected_date}_{selected_room}"
             if probs_cache_key not in st.session_state:
                 try:
@@ -721,7 +801,6 @@ with tab1:
                 help="Drag to see how the show-up distribution changes as bookings are added.",
             )
 
-            # Compute show-up PMF locally
             if n_simulate == 0:
                 show_pmf = np.array([1.0])
                 mean_su = 0.0
@@ -749,18 +828,17 @@ with tab1:
                 else:
                     reloc_prob = 0.0
 
-            # Stats row
             dcol1, dcol2, dcol3, dcol4 = st.columns(4)
             dcol1.metric("Bookings Simulated", n_simulate)
             dcol2.metric("Expected Show-ups", f"{mean_su:.1f}")
             dcol3.metric("Std Deviation", f"{std_su:.2f}")
             dcol4.metric("Relocation Risk", f"{reloc_prob * 100:.2f}%")
 
-            # Plotly PMF chart — themed
+            # Plotly chart — Apple colors
             x_vals = list(range(len(show_pmf)))
 
             bar_colors = [
-                PLOTLY_PRIMARY if k <= n_current
+                PLOTLY_BLUE if k <= n_current
                 else PLOTLY_GREEN if k <= capacity
                 else PLOTLY_RED
                 for k in x_vals
@@ -780,25 +858,25 @@ with tab1:
                 x=capacity + 0.5,
                 line_dash="dash",
                 line_color=PLOTLY_RED,
-                line_width=2,
+                line_width=1.5,
                 annotation_text=f"Capacity = {capacity}",
                 annotation_position="top left",
                 annotation_font_color=PLOTLY_RED,
-                annotation_font_size=12,
-                annotation_font=dict(family="DM Sans"),
+                annotation_font_size=11,
+                annotation_font=dict(family='-apple-system, Inter, sans-serif'),
             )
 
             fig_dist.update_layout(
                 **PLOTLY_LAYOUT_DEFAULTS,
-                height=380,
-                xaxis_title="Number of Show-ups",
+                height=370,
+                xaxis_title="Number of show-ups",
                 yaxis_title="Probability",
                 bargap=0.08,
             )
 
             st.plotly_chart(fig_dist, use_container_width=True)
 
-            # Individual show-up probability badges
+            # Badges
             if n_simulate > 0:
                 show_pcts = (indiv_show * 100).astype(int).tolist()
                 display_limit = 15
@@ -814,7 +892,7 @@ with tab1:
 
                 st.markdown(
                     f"Individual show-up probabilities "
-                    f"(<span style='color:{PLOTLY_PRIMARY}'>●</span> Current "
+                    f"(<span style='color:{PLOTLY_BLUE}'>●</span> Current "
                     f"<span style='color:{PLOTLY_GREEN}'>●</span> Extra)",
                     unsafe_allow_html=True,
                 )
@@ -822,9 +900,7 @@ with tab1:
 
             st.divider()
 
-            # ----------------------------------------------------------
-            # SHAP + Top Cancellations — two-column layout
-            # ----------------------------------------------------------
+            # SHAP + Top Cancellations
             left_col, right_col = st.columns([3, 2])
 
             with left_col:
@@ -925,7 +1001,7 @@ with tab1:
                                 x=plot_df["mean_abs_shap"].tolist(),
                                 y=plot_df["feature"].tolist(),
                                 orientation="h",
-                                marker_color=PLOTLY_PRIMARY_LIGHT,
+                                marker_color=PLOTLY_BLUE,
                                 marker_line=dict(width=0),
                             )
                         )
@@ -933,7 +1009,7 @@ with tab1:
                         fig.update_layout(
                             **PLOTLY_LAYOUT_DEFAULTS,
                             height=520,
-                            xaxis_title="Mean |SHAP Value|",
+                            xaxis_title="Mean |SHAP value|",
                             yaxis_title="",
                         )
                         fig.update_yaxes(
@@ -957,7 +1033,7 @@ EXPLAIN_LOCAL_URL = BASE_URI + 'explain/local'
 with tab2:
     st.subheader("Single Booking Prediction")
     st.markdown(
-        '<p style="color: #6B7280; font-size: 0.88rem;">Select one of the top 3 bookings '
+        '<p style="color: #8E8E93; font-size: 0.86rem; letter-spacing: -0.01em;">Select one of the top 3 bookings '
         'with the highest predicted cancellation risk to see the model\'s prediction '
         'and the SHAP values explaining it.</p>',
         unsafe_allow_html=True,
@@ -1002,14 +1078,10 @@ with tab2:
 
     if "single_booking" not in st.session_state:
         st.markdown(
-            """
-            <div style="text-align: center; padding: 3rem 2rem;">
-                <div style="font-size: 2.5rem; margin-bottom: 0.8rem; opacity: 0.4;">🔍</div>
-                <p style="color: #6B7280; font-size: 0.92rem;">
-                    Select a booking above to load its prediction.
-                </p>
-            </div>
-            """,
+            '<div class="apple-empty-state">'
+            '<div class="icon">🔍</div>'
+            '<p>Select a booking above to load its prediction.</p>'
+            '</div>',
             unsafe_allow_html=True,
         )
     else:
@@ -1020,7 +1092,6 @@ with tab2:
         prob = explain["cancellation_probability"]
         prediction = explain.get("prediction", int(prob >= 0.5))
 
-        # Top metrics row
         col1, col2, col3 = st.columns(3)
         col1.metric("Prediction", "Will Cancel" if prediction == 1 else "Won't Cancel")
         col2.metric("Cancellation Probability", f"{prob * 100:.1f}%")
@@ -1028,7 +1099,6 @@ with tab2:
 
         st.divider()
 
-        # Two-column layout
         left_col, right_col = st.columns([3, 2])
 
         with left_col:
@@ -1069,7 +1139,7 @@ with tab2:
                         x=plot_df["shap_value"].tolist(),
                         y=plot_df["feature"].tolist(),
                         orientation="h",
-                        marker_color=PLOTLY_PRIMARY_LIGHT,
+                        marker_color=PLOTLY_BLUE,
                         marker_line=dict(width=0),
                     )
                 )
@@ -1077,7 +1147,7 @@ with tab2:
                 fig.update_layout(
                     **PLOTLY_LAYOUT_DEFAULTS,
                     height=520,
-                    xaxis_title="SHAP Value",
+                    xaxis_title="SHAP value",
                     yaxis_title="",
                 )
                 fig.update_yaxes(
