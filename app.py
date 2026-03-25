@@ -276,6 +276,27 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# -----------------
+# Top Bar
+# -----------------
+st.markdown("""
+<div style="background:#FFFFFF; border-bottom:1px solid #D1D9E0; padding:14px 24px; margin-bottom:8px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <i class="fas fa-shield-alt" style="color:#5DA6D4; font-size:22px;"></i>
+    <div>
+      <div style="font-size:20px; font-weight:800; color:#1E293B; line-height:1;">NoShowShield</div>
+      <div style="font-size:13px; color:#64748B; margin-top:2px;">Revenue Protection Intelligence</div>
+    </div>
+  </div>
+</div>
+<div style="background:#FFFFFF; border:1px solid #D1D9E0; border-radius:10px; padding:14px 18px; margin-bottom:18px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);">
+  <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+    NoShowShield uses machine learning to predict booking cancellations and recommend optimal overbooking levels: maximising hotel revenue while keeping guest relocation risk below a configurable threshold.
+    Select a date and room type to see actionable recommendations backed by SHAP explainability.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
 
 # ------------------------------------------------------------------
 # Helpers
@@ -373,7 +394,7 @@ with st.sidebar:
     max_risk = st.slider(
         "Max relocation risk",
         min_value=0.0, max_value=0.10, value=0.05, step=0.01,
-        format="%.1f%%",
+        format="%.2f%%",
         help="Maximum acceptable probability of having to relocate a guest.",
     )
     get_recs = st.button("Get Recommendations", type="primary", use_container_width=True)
@@ -474,12 +495,7 @@ tab1, tab2 = st.tabs(["Booking Recommendations", "Single Booking Analysis"])
 
 with tab1:
     if "results" not in st.session_state:
-        st.markdown("""
-        <div class="nss-page-header">
-          <h1><i class="fas fa-shield-alt"></i> NoShowShield</h1>
-          <p>Revenue Protection Intelligence — adjust settings in the sidebar and click <b>Get Recommendations</b> to start.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("NoShowShield is ready. Adjust settings in the sidebar and click **Get Recommendations** to start.")
         st.stop()
 
     # Filter to selection
