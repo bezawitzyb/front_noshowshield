@@ -761,7 +761,7 @@ with tab1:
             current_pcts = show_pcts[:min(n_simulate, n_current)]
             extra_pcts = show_pcts[n_current:] if n_simulate > n_current else []
 
-            display_limit = 30
+            display_limit = 40
             badges = ""
             for i, pct in enumerate(show_pcts[:display_limit]):
                 color = CLR_BAR_BELOW if i < n_current else CLR_BAR_SAFE if i < capacity else CLR_BAR_RISK
@@ -776,9 +776,9 @@ with tab1:
 
             st.markdown(
                 f"Individual show-up probabilities % "
-                f"(<span style='color:{CLR_BAR_BELOW}'>■</span> Below Current "
-                f"<span style='color:{CLR_BAR_SAFE}'>■</span> Safe "
-                f"<span style='color:{CLR_BAR_RISK}'>■</span> Risk)",
+                f"(<span style='color:{CLR_BAR_BELOW}'>■</span> Current Bookings "
+                f"<span style='color:{CLR_BAR_SAFE}'>■</span> Recommended Bookings "
+                f"<span style='color:{CLR_BAR_RISK}'>■</span> Recommended Bookings at Risk of Relocation)",
                 unsafe_allow_html=True,
             )
             st.markdown(badges, unsafe_allow_html=True)
