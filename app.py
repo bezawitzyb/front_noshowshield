@@ -365,7 +365,7 @@ def api_post(url, payload, timeout=60, max_retries=2):
 with st.sidebar:
     selected_tab = st.radio("Navigation", ["Booking Recommendations", "Single Booking Analysis"])
 
-    st.markdown("### <i class='fas fa-cog'></i> Optimization Settings")
+    st.markdown("### <i class='fas fa-sliders-h'></i> Optimization Settings", unsafe_allow_html=True)
 
     relocation_cost = st.number_input(
         "Relocation cost (€)",
@@ -405,7 +405,7 @@ if "results" in st.session_state:
     model_info = results["model_info"]
 
     with st.sidebar:
-        st.markdown("### <i class='fas fa-filter'></i> Filters")
+        st.markdown("### <i class='fas fa-filter'></i> Filters", unsafe_allow_html=True)
         available_hotels = sorted(recs["hotel"].unique())
         selected_hotel = st.selectbox("Hotel", available_hotels)
 
