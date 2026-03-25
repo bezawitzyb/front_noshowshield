@@ -82,6 +82,7 @@ st.markdown(f"""
     border-radius: 12px;
     padding: 18px 20px 16px;
     margin-bottom: 4px;
+    min-height: 120px;
   }}
   .nss-card .card-icon {{
     font-size: 18px;
@@ -528,10 +529,8 @@ with tab1:
 
     # Page header
     st.markdown(f"""
-    <div class="nss-page-header">
-      <h1>Booking Recommendations</h1>
-      <p>Optimize your inventory for <b>{selected_date}</b> · Room Type: <b>{selected_room}</b></p>
-    </div>
+    <h1>Booking Recommendations</h1>
+    <p>Optimize your inventory for <b>{selected_date}</b> · Room Type: <b>{selected_room}</b></p>
     """, unsafe_allow_html=True)
 
     if filtered.empty:
