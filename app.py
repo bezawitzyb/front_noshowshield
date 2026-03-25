@@ -1110,7 +1110,7 @@ with tab2:
             <div class="action-bar">
               <div>
                 <div class="ab-text">🛡️ Ready to take action?</div>
-                <div class="ab-sub">Use the options below to optimise owner or contact the guest.</div>
+                <div class="ab-sub">Use the option to optimise booking strategy or contact the guest.</div>
               </div>
               <div style="display:flex;gap:10px;">
                 <button style="padding:8px 18px;border-radius:8px;border:1px solid #CBD5E1;
