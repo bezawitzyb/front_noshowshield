@@ -796,11 +796,17 @@ with tab1:
                 unsafe_allow_html=True,
             )
 
-            top_result = api_get(
-                TOP_CANCELLATIONS_URL,
-                {"hotel": selected_hotel, "arrival_date": str(selected_date), "room_type": selected_room},
-                timeout=30, max_retries=2,
-            )
+            top_cancel_cache_key = f"tc_{selected_hotel}_{selected_date}_{selected_room}"
+
+            if top_cancel_cache_key not in st.session_state:
+                top_result = api_get(
+                    TOP_CANCELLATIONS_URL,
+                    {"hotel": selected_hotel, "arrival_date": str(selected_date), "room_type": selected_room},
+                    timeout=30, max_retries=2,
+                )
+                st.session_state[top_cancel_cache_key] = top_result
+            else:
+                top_result = st.session_state[top_cancel_cache_key]
 
             if "error" in top_result:
                 st.warning(f"Could not load top cancellations: {top_result['error']}")
@@ -927,20 +933,30 @@ with tab2:
     </div>
     """, unsafe_allow_html=True)
 
-    # Load top bookings once
-    if "top_bookings_list" not in st.session_state and "results" in st.session_state:
-        with st.spinner("Loading top high-risk bookings …"):
-            top_result = api_get(TOP_BOOKINGS_URL, {}, timeout=60, max_retries=2)
-        if "error" in top_result:
-            st.error(top_result["error"])
-            st.session_state["top_bookings_list"] = []
-        else:
-            st.session_state["top_bookings_list"] = top_result["top_bookings"]
-
     if "results" not in st.session_state:
         st.info("Load recommendations first using the sidebar.")
     else:
-        top_bookings_list = st.session_state.get("top_bookings_list", [])
+        # Reuse the exact same /top-cancellations data that tab1 fetched.
+        # The cache key mirrors tab1 — guaranteed identical bookings.
+        top_cancel_cache_key = f"tc_{selected_hotel}_{selected_date}_{selected_room}"
+
+        if top_cancel_cache_key not in st.session_state:
+            # Tab1 hasn't loaded yet for this filter — fetch now
+            with st.spinner("Loading top high-risk bookings for this segment …"):
+                top_result = api_get(
+                    TOP_CANCELLATIONS_URL,
+                    {"hotel": selected_hotel, "arrival_date": str(selected_date), "room_type": selected_room},
+                    timeout=60, max_retries=2,
+                )
+            st.session_state[top_cancel_cache_key] = top_result
+        else:
+            top_result = st.session_state[top_cancel_cache_key]
+
+        if "error" in top_result:
+            st.error(top_result["error"])
+            top_bookings_list = []
+        else:
+            top_bookings_list = top_result.get("top_3", [])
 
         # Booking selector + export button in same row
         sel_col, btn_col = st.columns([5, 1])
@@ -959,7 +975,7 @@ with tab2:
 
         if selected_label != placeholder and top_bookings_list:
             selected_entry = next(b for b in top_bookings_list if b["label"] == selected_label)
-            cache_key = f"explain_{selected_entry['rank']}"
+            cache_key = f"explain_{selected_hotel}_{selected_date}_{selected_room}_{selected_entry['rank']}"
 
             if cache_key not in st.session_state:
                 with st.spinner("Running prediction and SHAP explanation …"):
@@ -1002,7 +1018,7 @@ with tab2:
                 <div class="pred-box">
                   <div class="pred-label">Cancellation Probability</div>
                   <div class="pred-prob">{prob * 100:.1f}%</div>
-                  <div class="pred-sub">Probability calculated by KGBoost Classifier.</div>
+                  <div class="pred-sub">Probability calculated by XGBoost Classifier.</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1029,7 +1045,7 @@ with tab2:
                     "adr": "Avg Daily Rate",
                     "customer_type": "Customer Type",
                     "deposit_type": "Deposit Type",
-                    "total_special_requests": "Total Special Requests",
+                    "total_of_special_requests": "Total Special Requests",
                     "reserved_room_type": "Reserved Room",
                     "assigned_room_type": "Assigned Room",
                     "booking_changes": "Booking Changes",
